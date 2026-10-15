@@ -36,6 +36,9 @@ public abstract class User {
 
     private String language;
 
+    @Column(nullable = true)
+    private String phoneNumber;
+
     public User() {
     }
 
@@ -117,6 +120,14 @@ public abstract class User {
 
     public void setLanguage(String language) {
         this.language = language;
+    }
+
+    public String getPhoneNumber() {
+        return phoneNumber;
+    }
+
+    public void setPhoneNumber(String phoneNumber) {
+        this.phoneNumber = phoneNumber;
     }
 }
 
