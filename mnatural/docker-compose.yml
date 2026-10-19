@@ -1,0 +1,15 @@
+services:
+  db:
+    image: postgres:18
+    container_name: mnatural-db
+    environment:
+      POSTGRES_DB: mNatural
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: contrasenanexo
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
