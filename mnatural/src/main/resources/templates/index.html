@@ -17,15 +17,18 @@
             </p>
 
             <div class="d-grid gap-3">
-                <!-- TODO: falta implementar el registro de turistas; habilitar y apuntar a su ruta cuando exista -->
-                <button type="button" class="btn btn-outline-success btn-lg" disabled>
+                <a th:href="@{/registro/turista}" class="btn btn-outline-success btn-lg">
                     Registrarme como turista
-                </button>
+                </a>
 
                 <a th:href="@{/registro/prestador}" class="btn btn-success btn-lg">
                     Registrarme como prestador
                 </a>
             </div>
+
+            <p class="mt-4 mb-0">
+                ¿Ya tenés cuenta? <a th:href="@{/login}">Iniciá sesión</a>
+            </p>
         </div>
     </div>
 
