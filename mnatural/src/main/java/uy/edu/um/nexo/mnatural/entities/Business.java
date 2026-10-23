@@ -17,7 +17,7 @@ public class Business {
     private LegalType legalType;
 
     @Column(nullable = true)
-    private String rut;
+    private Long rut;
 
     @Column(nullable = false)
     private String address;
@@ -65,11 +65,11 @@ public class Business {
         this.legalType = legalType;
     }
 
-    public String getRut() {
+    public Long getRut() {
         return rut;
     }
 
-    public void setRut(String rut) {
+    public void setRut(Long rut) {
         this.rut = rut;
     }
 
