@@ -41,7 +41,7 @@ public class ProviderService {
             throw new EmailAlreadyRegisteredException(email);
         }
 
-        String rut = blankToNull(dto.getRut());
+        Long rut = dto.getRut();
         if (dto.getLegalType() == LegalType.COMPANY && rut == null) {
             throw new RutRequiredException();
         }
