@@ -44,7 +44,7 @@ public class SecurityConfig {
                 // hay que sumarla a la primera lista
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/", "/login", "/registro/**", "/error",
-                                "/css/**", "/js/**", "/images/**").permitAll()
+                                "/css/**", "/js/**", "/images/**", "/img/**").permitAll()
                         .requestMatchers("/admin/**").hasRole(Role.ADMIN.name())
                         .requestMatchers("/prestador/**").hasRole(Role.PROVIDER.name())
                         .requestMatchers("/turista/**").hasRole(Role.TOURIST.name())

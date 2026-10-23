@@ -1,0 +1,561 @@
+/* =========================================================================
+   Uruguay Mnatural — estilos comunes
+   Se usa junto con Bootstrap 5 (grilla y formularios). Enlazar con:
+     <link rel="stylesheet" th:href="@{/css/styles.css}">
+   Estructura de una página:
+     header.site-header  >  section.hero  >  main.page  >  footer.site-footer
+
+   FOTOS (carpeta static/img). Para cambiar una foto, reemplazar el archivo
+   por otro con el mismo nombre. Ambas son de Unsplash, licencia gratuita
+   (https://unsplash.com/license):
+   - banner-registro.jpg: sierras y campo de Uruguay, por Karan Chaudhari
+     (@trippyhooman) — https://unsplash.com/photos/YqUW7fT5NwM
+   - banner-exito.jpg: faro en la costa uruguaya al atardecer, por Pedro Slinger
+     (@pedroslinger) — https://unsplash.com/photos/t-DEq-UoICc
+   - banner-login.jpg: Punta del Este al atardecer, por Leandro Hernández
+     (@untropero) — https://unsplash.com/photos/jHz2WyDBVyo
+   ========================================================================= */
+
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap");
+
+/* ---------- Colores y medidas (cambiar acá para cambiar todo el sitio) ---------- */
+:root {
+    /* Fondos */
+    --color-bg: #f2ebdd;            /* arena: fondo de la página */
+    --color-surface: #faf6ee;       /* tarjetas, un poco más claras que el fondo */
+    --color-surface-alt: #ede4d2;   /* campos de formulario, bordes suaves */
+    --color-border: #e0d4bf;
+
+    /* Principal: verde bosque */
+    --color-primary: #3f5b2c;
+    --color-primary-dark: #2d4220;
+    --color-primary-soft: #e2e7d2;
+
+    /* Acento: terracota y marrón */
+    --color-accent: #c06c48;
+    --color-accent-dark: #9c5134;
+    --color-accent-soft: #f4e0d4;
+    --color-brown: #7a5b3d;
+
+    /* Texto */
+    --color-text: #3b3429;
+    --color-muted: #7b705f;
+    --color-on-photo: #ffffff;
+
+    /* Estados */
+    --color-error: #b3261e;
+    --color-error-soft: #fbe6e1;
+    --color-warning: #8a5b00;
+    --color-warning-soft: #fbefd5;
+
+    /* Forma */
+    --radius-lg: 24px;
+    --radius: 16px;
+    --radius-sm: 12px;
+    --shadow: 0 8px 28px rgba(59, 52, 41, 0.10);
+    --shadow-strong: 0 14px 40px rgba(59, 52, 41, 0.16);
+
+    --font-family: "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+    /* Bootstrap toma estas variables */
+    --bs-body-font-family: var(--font-family);
+    --bs-body-color: var(--color-text);
+    --bs-body-bg: var(--color-bg);
+    --bs-link-color: var(--color-accent-dark);
+    --bs-link-color-rgb: 156, 81, 52;
+    --bs-link-hover-color: var(--color-primary);
+    --bs-link-hover-color-rgb: 63, 91, 44;
+    --bs-form-invalid-color: var(--color-error);
+    --bs-form-invalid-border-color: var(--color-error);
+    --bs-secondary-color: var(--color-muted);
+}
+
+/* El footer queda abajo aunque la página tenga poco contenido */
+body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--color-bg);
+    font-family: var(--font-family);
+    color: var(--color-text);
+}
+
+h1, h2, h3, h4, h5, h6 {
+    color: var(--color-primary);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+a {
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+.text-muted {
+    color: var(--color-muted) !important;
+}
+
+/* ---------- Header ---------- */
+.site-header {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    padding: 0.85rem 0;
+    background: rgba(242, 235, 221, 0.92);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.site-header .container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    color: var(--color-primary);
+    font-weight: 700;
+    font-size: 1.2rem;
+    letter-spacing: -0.01em;
+}
+
+.brand:hover {
+    color: var(--color-primary-dark);
+    text-decoration: none;
+}
+
+/* Hoja dibujada solo con CSS */
+.brand-mark {
+    width: 26px;
+    height: 26px;
+    border-radius: 0 60% 0 60%;
+    background: linear-gradient(135deg, #7a9a4f, var(--color-primary));
+    box-shadow: inset -3px -3px 0 rgba(0, 0, 0, 0.08);
+}
+
+.site-nav {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.site-nav a {
+    color: var(--color-text);
+    font-weight: 500;
+    font-size: 0.95rem;
+    padding: 0.5rem 1rem;
+    border-radius: 999px;
+}
+
+.site-nav a:hover {
+    background: var(--color-surface-alt);
+    text-decoration: none;
+}
+
+.site-nav a.nav-cta {
+    background: var(--color-primary);
+    color: #fff;
+}
+
+.site-nav a.nav-cta:hover {
+    background: var(--color-primary-dark);
+}
+
+/* ---------- Banner superior ---------- */
+/* Tarjeta grande con foto y título encima. Sin foto usa un degradado verde */
+.hero {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 420px;
+    margin: 1.25rem auto 0;
+    width: calc(100% - 2.5rem);
+    max-width: 1280px;
+    padding: 3rem 1.5rem 5.5rem;
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    color: var(--color-on-photo);
+    text-align: center;
+    background:
+        radial-gradient(circle at 80% 20%, rgba(244, 224, 212, 0.35), transparent 45%),
+        linear-gradient(160deg, #5f7f3f 0%, var(--color-primary) 55%, var(--color-primary-dark) 100%);
+}
+
+.hero-small {
+    min-height: 340px;
+}
+
+/* Variantes con foto: velo oscuro abajo para que el texto se lea siempre */
+.hero-photo {
+    background-size: cover;
+    background-position: center;
+}
+
+.hero-registro {
+    background-image:
+        linear-gradient(180deg, rgba(30, 25, 15, 0.15) 0%, rgba(30, 25, 15, 0.55) 100%),
+        url("../img/banner-registro.jpg");
+}
+
+.hero-exito {
+    background-image:
+        linear-gradient(180deg, rgba(30, 20, 10, 0.10) 0%, rgba(30, 20, 10, 0.50) 100%),
+        url("../img/banner-exito.jpg");
+    background-position: center 60%;
+}
+
+.hero-login {
+    background-image:
+        linear-gradient(180deg, rgba(30, 20, 10, 0.20) 0%, rgba(30, 20, 10, 0.55) 100%),
+        url("../img/banner-login.jpg");
+    background-position: center 40%;
+}
+
+.hero .container {
+    position: relative;
+    z-index: 1;
+}
+
+.hero h1 {
+    color: var(--color-on-photo);
+    font-weight: 700;
+    font-size: clamp(2rem, 5vw, 3.25rem);
+    margin-bottom: 0.6rem;
+    text-shadow: 0 2px 18px rgba(0, 0, 0, 0.35);
+}
+
+.hero p {
+    max-width: 620px;
+    margin: 0 auto;
+    font-size: 1.15rem;
+    color: rgba(255, 255, 255, 0.95);
+    text-shadow: 0 1px 12px rgba(0, 0, 0, 0.4);
+}
+
+/* ---------- Contenido ---------- */
+/* La tarjeta sube sobre el pie del banner, como un buscador superpuesto */
+.page {
+    flex: 1 0 auto;
+    position: relative;
+    z-index: 2;
+    margin-top: -4rem;
+    padding-bottom: 4rem;
+}
+
+.page-narrow {
+    max-width: 480px;
+}
+
+.page-medium {
+    max-width: 640px;
+}
+
+.page-wide {
+    max-width: 840px;
+}
+
+/* ---------- Tarjetas ---------- */
+.card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+}
+
+.card-header {
+    background: transparent;
+    border-bottom: 1px solid var(--color-border);
+    padding: 1.15rem 1.75rem;
+    color: var(--color-primary);
+    font-weight: 700;
+    font-size: 1.05rem;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+/* Marca terracota antes del título de cada sección */
+.card-header::before {
+    content: "";
+    width: 6px;
+    height: 20px;
+    border-radius: 3px;
+    background: var(--color-accent);
+    flex-shrink: 0;
+}
+
+.card-body {
+    padding: 1.5rem 1.75rem 1.75rem;
+}
+
+/* Tarjeta para mensajes (éxito, opciones de la portada) */
+.card-feature {
+    text-align: center;
+}
+
+.card-feature .card-body {
+    padding: 2.75rem 2.25rem;
+}
+
+.feature-icon {
+    width: 72px;
+    height: 72px;
+    margin: 0 auto 1.25rem;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--color-primary);
+    background: var(--color-primary-soft);
+}
+
+.feature-icon-water {
+    color: var(--color-accent-dark);
+    background: var(--color-accent-soft);
+}
+
+/* ---------- Formularios ---------- */
+.form-label {
+    font-weight: 600;
+    font-size: 0.92rem;
+    color: var(--color-text);
+    margin-bottom: 0.4rem;
+}
+
+.form-control,
+.form-select {
+    border: 1.5px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: 0.75rem 1rem;
+    font-size: 1rem;
+    color: var(--color-text);
+    background-color: #fffdf8;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.form-control::placeholder {
+    color: #a99d8a;
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: var(--color-primary);
+    background-color: #fff;
+    box-shadow: 0 0 0 4px rgba(63, 91, 44, 0.15);
+}
+
+.form-text {
+    color: var(--color-muted);
+    font-size: 0.85rem;
+}
+
+/* Errores de validación: borde rojo y mensaje en rojo debajo del campo */
+.form-control.is-invalid,
+.form-select.is-invalid {
+    border-color: var(--color-error);
+    background-color: #fff8f6;
+}
+
+.form-control.is-invalid:focus,
+.form-select.is-invalid:focus {
+    border-color: var(--color-error);
+    box-shadow: 0 0 0 4px rgba(179, 38, 30, 0.15);
+}
+
+.invalid-feedback {
+    color: var(--color-error);
+    font-size: 0.87rem;
+    font-weight: 600;
+    margin-top: 0.4rem;
+}
+
+.invalid-feedback::before {
+    content: "⚠ ";
+}
+
+/* ---------- Alertas ---------- */
+.alert {
+    border: none;
+    border-radius: var(--radius);
+    padding: 1rem 1.25rem;
+    font-weight: 500;
+    box-shadow: var(--shadow);
+}
+
+.alert-danger {
+    background: var(--color-error-soft);
+    color: var(--color-error);
+    border-left: 5px solid var(--color-error);
+}
+
+.alert-warning {
+    background: var(--color-warning-soft);
+    color: var(--color-warning);
+    border-left: 5px solid #d59a1c;
+}
+
+.alert-success {
+    background: var(--color-primary-soft);
+    color: var(--color-primary-dark);
+    border-left: 5px solid var(--color-primary);
+}
+
+/* ---------- Botones ---------- */
+.btn {
+    border-radius: 999px;
+    font-weight: 600;
+    padding: 0.75rem 1.75rem;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+
+.btn-lg {
+    padding: 0.95rem 2.1rem;
+    font-size: 1.08rem;
+}
+
+/* Principal: verde bosque */
+.btn-success {
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+    color: #fff;
+    box-shadow: 0 8px 20px rgba(63, 91, 44, 0.28);
+}
+
+.btn-success:hover,
+.btn-success:focus {
+    background: var(--color-primary-dark);
+    border-color: var(--color-primary-dark);
+    color: #fff;
+    transform: translateY(-1px);
+    box-shadow: 0 10px 24px rgba(63, 91, 44, 0.35);
+}
+
+/* Secundario: contorno terracota */
+.btn-outline-success {
+    color: var(--color-accent-dark);
+    border: 2px solid var(--color-accent);
+    background: transparent;
+}
+
+.btn-outline-success:hover,
+.btn-outline-success:focus {
+    color: #fff;
+    background: var(--color-accent);
+    border-color: var(--color-accent);
+    transform: translateY(-1px);
+}
+
+.btn-outline-secondary {
+    color: var(--color-text);
+    border: 2px solid var(--color-border);
+    background: transparent;
+}
+
+.btn-outline-secondary:hover,
+.btn-outline-secondary:focus {
+    color: var(--color-text);
+    background: var(--color-surface-alt);
+    border-color: var(--color-surface-alt);
+}
+
+/* ---------- Footer ---------- */
+.site-footer {
+    flex-shrink: 0;
+    background: var(--color-primary-dark);
+    color: rgba(255, 255, 255, 0.8);
+    padding: 2rem 0;
+    font-size: 0.92rem;
+}
+
+.site-footer .container {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.site-footer .brand {
+    color: #fff;
+    font-size: 1.05rem;
+}
+
+.site-footer .brand-mark {
+    background: linear-gradient(135deg, #a9c47c, #e0b48f);
+}
+
+.site-footer a {
+    color: rgba(255, 255, 255, 0.88);
+}
+
+.site-footer a:hover {
+    color: #fff;
+}
+
+/* ---------- Celular ---------- */
+@media (max-width: 576px) {
+    .site-header {
+        padding: 0.7rem 0;
+    }
+
+    .brand {
+        font-size: 1.05rem;
+    }
+
+    .site-nav a {
+        padding: 0.45rem 0.85rem;
+        font-size: 0.9rem;
+    }
+
+    .hero,
+    .hero-small {
+        min-height: 280px;
+        width: calc(100% - 1.5rem);
+        margin-top: 0.75rem;
+        padding: 2rem 1rem 4.5rem;
+        border-radius: var(--radius);
+    }
+
+    .hero p {
+        font-size: 1rem;
+    }
+
+    .page {
+        margin-top: -3rem;
+    }
+
+    .card {
+        border-radius: var(--radius);
+    }
+
+    .card-header {
+        padding: 1rem 1.25rem;
+    }
+
+    .card-body {
+        padding: 1.25rem;
+    }
+
+    .card-feature .card-body {
+        padding: 2rem 1.25rem;
+    }
+
+    .btn-lg {
+        width: 100%;
+    }
+
+    .site-footer .container {
+        flex-direction: column;
+        text-align: center;
+    }
+}
