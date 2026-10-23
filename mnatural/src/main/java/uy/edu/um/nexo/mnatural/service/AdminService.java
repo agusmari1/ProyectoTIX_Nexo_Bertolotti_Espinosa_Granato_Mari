@@ -1,5 +1,6 @@
 package uy.edu.um.nexo.mnatural.service;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import uy.edu.um.nexo.mnatural.entities.Admin;
@@ -19,9 +20,11 @@ public class AdminService {
     public static final int MAX_REJECTION_REASON_LENGTH = 500;
 
     private final ProviderRepository providerRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
-    public AdminService(ProviderRepository providerRepository) {
+    public AdminService(ProviderRepository providerRepository, ApplicationEventPublisher eventPublisher) {
         this.providerRepository = providerRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     // Prestadores pendientes, del que llegó primero al que llegó último
@@ -34,8 +37,7 @@ public class AdminService {
     public Provider approve(Long providerId, Admin admin) {
         Provider provider = findPendingProvider(providerId);
         resolve(provider, ApprovalStatus.APPROVED, admin);
-        // TODO: avisarle al prestador por correo electrónico que fue aprobado (fuera de esta tarea)
-        return providerRepository.save(provider);
+        return saveAndNotify(provider);
     }
 
     @Transactional
@@ -52,8 +54,15 @@ public class AdminService {
         Provider provider = findPendingProvider(providerId);
         provider.setRejectionReason(cleanReason);
         resolve(provider, ApprovalStatus.REJECTED, admin);
-        // TODO: avisarle al prestador por correo electrónico que fue rechazado, con el motivo (fuera de esta tarea)
-        return providerRepository.save(provider);
+        return saveAndNotify(provider);
+    }
+
+    // El correo al prestador lo manda ProviderReviewNotifier recién cuando esta transacción
+    // se confirma; si algo falla antes y se deshace, no sale ningún mensaje
+    private Provider saveAndNotify(Provider provider) {
+        Provider saved = providerRepository.save(provider);
+        eventPublisher.publishEvent(new ProviderReviewedEvent(saved));
+        return saved;
     }
 
     // Solo se puede resolver una solicitud que sigue pendiente
