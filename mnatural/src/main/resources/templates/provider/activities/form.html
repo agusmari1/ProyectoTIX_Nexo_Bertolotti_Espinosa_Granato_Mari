@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Nueva actividad | Uruguay Mnatural</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+<main class="container py-5" style="max-width: 760px;">
+
+    <a th:href="@{/provider/activities}" class="small">&larr; Mis actividades</a>
+    <h1 class="mt-2 mb-1">Nueva actividad</h1>
+    <p class="text-muted mb-4">
+        La actividad se publica en cuanto la guardás. Después vas a poder agregarle fechas y horarios.
+    </p>
+
+    <div class="alert alert-danger" th:if="${errorMessage}" th:text="${errorMessage}"></div>
+
+    <div class="alert alert-warning" th:if="${#lists.isEmpty(businesses)}">
+        Todavía no tenés ningún emprendimiento registrado, así que no podés crear actividades.
+    </div>
+
+    <form th:unless="${#lists.isEmpty(businesses)}"
+          th:action="@{/provider/activities}" th:object="${activity}" method="post" novalidate>
+
+        <!-- Datos generales -->
+        <div class="card mb-4">
+            <div class="card-header fw-semibold">Datos de la actividad</div>
+            <div class="card-body row g-3">
+
+                <!-- Con un solo emprendimiento se usa ese y no hace falta elegir -->
+                <div class="col-12" th:if="${#lists.size(businesses) > 1}">
+                    <label for="businessId" class="form-label">Emprendimiento</label>
+                    <select id="businessId" class="form-select" th:field="*{businessId}" th:errorclass="is-invalid">
+                        <option value="">Seleccioná…</option>
+                        <option th:each="business : ${businesses}" th:value="${business.id}" th:text="${business.name}"></option>
+                    </select>
+                    <div class="invalid-feedback" th:errors="*{businessId}"></div>
+                </div>
+                <div class="col-12" th:if="${#lists.size(businesses) == 1}">
+                    <span class="text-muted">Emprendimiento:</span>
+                    <span class="fw-semibold" th:text="${businesses[0].name}"></span>
+                    <div class="text-danger small" th:errors="*{businessId}"></div>
+                </div>
+
+                <div class="col-12">
+                    <label for="name" class="form-label">Nombre</label>
+                    <input type="text" id="name" class="form-control" th:field="*{name}" th:errorclass="is-invalid">
+                    <div class="invalid-feedback" th:errors="*{name}"></div>
+                </div>
+
+                <div class="col-12">
+                    <label for="description" class="form-label">Descripción</label>
+                    <textarea id="description" rows="4" class="form-control" th:field="*{description}" th:errorclass="is-invalid"></textarea>
+                    <div class="invalid-feedback" th:errors="*{description}"></div>
+                </div>
+
+                <div class="col-12">
+                    <span class="form-label d-block">Tipos de actividad</span>
+                    <div class="form-check form-check-inline" th:each="type : ${activityTypes}">
+                        <input type="checkbox" class="form-check-input" th:field="*{activityTypeIds}" th:value="${type.id}">
+                        <label class="form-check-label" th:for="${#ids.prev('activityTypeIds')}" th:text="${type.name}"></label>
+                    </div>
+                    <div class="text-muted small" th:if="${#lists.isEmpty(activityTypes)}">
+                        No hay tipos de actividad disponibles. Pedile a un administrador que los cargue.
+                    </div>
+                    <div class="text-danger small" th:errors="*{activityTypeIds}"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ubicación -->
+        <div class="card mb-4">
+            <div class="card-header fw-semibold">Ubicación</div>
+            <div class="card-body row g-3">
+
+                <div class="col-md-6">
+                    <label for="department" class="form-label">Departamento</label>
+                    <select id="department" class="form-select" th:field="*{department}" th:errorclass="is-invalid">
+                        <option value="">Seleccioná…</option>
+                        <option th:each="option : ${departments}" th:value="${option.key}" th:text="${option.value}"></option>
+                    </select>
+                    <div class="invalid-feedback" th:errors="*{department}"></div>
+                </div>
+
+                <div class="col-md-6">
+                    <label for="locality" class="form-label">Localidad</label>
+                    <input type="text" id="locality" class="form-control" th:field="*{locality}" th:errorclass="is-invalid">
+                    <div class="invalid-feedback" th:errors="*{locality}"></div>
+                </div>
+
+                <div class="col-12">
+                    <label for="address" class="form-label">Punto de encuentro</label>
+                    <input type="text" id="address" class="form-control" th:field="*{address}" th:errorclass="is-invalid">
+                    <div class="invalid-feedback" th:errors="*{address}"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Duración, precio y requisitos -->
+        <div class="card mb-4">
+            <div class="card-header fw-semibold">Duración, precio y requisitos</div>
+            <div class="card-body row g-3">
+
+                <div class="col-md-6">
+                    <label for="durationMinutes" class="form-label">Duración (minutos)</label>
+                    <input type="number" min="1" id="durationMinutes" class="form-control" th:field="*{durationMinutes}" th:errorclass="is-invalid">
+                    <div class="invalid-feedback" th:errors="*{durationMinutes}"></div>
+                </div>
+
+                <div class="col-md-6">
+                    <label for="pricePerPerson" class="form-label">Precio por persona (pesos uruguayos)</label>
+                    <input type="number" min="0" step="0.01" id="pricePerPerson" class="form-control" th:field="*{pricePerPerson}" th:errorclass="is-invalid">
+                    <div class="invalid-feedback" th:errors="*{pricePerPerson}"></div>
+                </div>
+
+                <div class="col-md-6">
+                    <label for="minAge" class="form-label">Edad mínima <span class="text-muted">(opcional)</span></label>
+                    <input type="number" min="0" id="minAge" class="form-control" th:field="*{minAge}" th:errorclass="is-invalid">
+                    <div class="invalid-feedback" th:errors="*{minAge}"></div>
+                </div>
+
+                <div class="col-12">
+                    <label for="requirements" class="form-label">Requisitos <span class="text-muted">(opcional)</span></label>
+                    <textarea id="requirements" rows="2" class="form-control" th:field="*{requirements}" th:errorclass="is-invalid"></textarea>
+                    <div class="invalid-feedback" th:errors="*{requirements}"></div>
+                </div>
+
+                <div class="col-12">
+                    <label for="equipment" class="form-label">Equipamiento <span class="text-muted">(opcional)</span></label>
+                    <textarea id="equipment" rows="2" class="form-control" th:field="*{equipment}" th:errorclass="is-invalid"></textarea>
+                    <div class="invalid-feedback" th:errors="*{equipment}"></div>
+                    <div class="form-text">Qué tiene que traer el turista y qué le proporcionás vos.</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Reservas y cancelación -->
+        <div class="card mb-4">
+            <div class="card-header fw-semibold">Reservas y cancelación</div>
+            <div class="card-body row g-3">
+
+                <div class="col-md-6">
+                    <label for="bookingCutoffMinutes" class="form-label">Límite para reservar (minutos antes)</label>
+                    <input type="number" min="0" id="bookingCutoffMinutes" class="form-control" th:field="*{bookingCutoffMinutes}" th:errorclass="is-invalid">
+                    <div class="invalid-feedback" th:errors="*{bookingCutoffMinutes}"></div>
+                    <div class="form-text">Con 0 se puede reservar hasta la hora de inicio.</div>
+                </div>
+
+                <div class="col-12">
+                    <div class="form-check">
+                        <input type="checkbox" class="form-check-input" th:field="*{cancellationAllowed}">
+                        <label class="form-check-label" th:for="${#ids.prev('cancellationAllowed')}">Admite cancelaciones</label>
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <label for="cancellationCutoffHours" class="form-label">Cancelar hasta (horas antes)</label>
+                    <input type="number" min="0" id="cancellationCutoffHours" class="form-control" th:field="*{cancellationCutoffHours}" th:errorclass="is-invalid">
+                    <div class="invalid-feedback" th:errors="*{cancellationCutoffHours}"></div>
+                </div>
+
+                <div class="col-md-6">
+                    <label for="refundPercentage" class="form-label">Porcentaje que se reembolsa</label>
+                    <input type="number" min="0" max="100" step="0.01" id="refundPercentage" class="form-control" th:field="*{refundPercentage}" th:errorclass="is-invalid">
+                    <div class="invalid-feedback" th:errors="*{refundPercentage}"></div>
+                </div>
+                <div class="col-12 form-text mt-1">Estos dos datos solo se piden si admite cancelaciones.</div>
+            </div>
+        </div>
+
+        <button type="submit" class="btn btn-success btn-lg w-100">Publicar actividad</button>
+    </form>
+
+</main>
+</body>
+</html>
