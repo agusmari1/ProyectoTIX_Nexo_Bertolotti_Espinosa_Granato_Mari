@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Mis actividades | Uruguay Mnatural</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+<main class="container py-5" style="max-width: 900px;">
+
+    <div class="d-flex justify-content-between align-items-start mb-1">
+        <h1 class="mb-0">Mis actividades</h1>
+        <form th:action="@{/logout}" method="post">
+            <button type="submit" class="btn btn-outline-secondary btn-sm">Cerrar sesión</button>
+        </form>
+    </div>
+    <p class="text-muted mb-4">
+        Las actividades que creás quedan publicadas. Agregales fechas y horarios para que los turistas puedan reservar.
+    </p>
+
+    <div class="alert alert-success" th:if="${successMessage}" th:text="${successMessage}"></div>
+    <div class="alert alert-danger" th:if="${errorMessage}" th:text="${errorMessage}"></div>
+
+    <a th:href="@{/provider/activities/new}" class="btn btn-success mb-4">Nueva actividad</a>
+
+    <div class="alert alert-info" th:if="${#lists.isEmpty(activities)}">
+        Todavía no creaste ninguna actividad.
+    </div>
+
+    <div class="card mb-3" th:each="activity : ${activities}">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span class="fw-semibold" th:text="${activity.name}"></span>
+            <span class="badge"
+                  th:classappend="${activity.status.name() == 'PUBLISHED'} ? 'text-bg-success' : 'text-bg-secondary'"
+                  th:text="${activity.status.name() == 'PUBLISHED'} ? 'Publicada'
+                           : (${activity.status.name() == 'SUSPENDED'} ? 'Suspendida' : 'Borrador')"></span>
+        </div>
+        <div class="card-body">
+            <div class="row g-2 small">
+                <div class="col-md-6">
+                    <span class="text-muted">Emprendimiento:</span>
+                    <span th:text="${activity.business.name}"></span>
+                </div>
+                <div class="col-md-6">
+                    <span class="text-muted">Ubicación:</span>
+                    <span th:text="${activity.locality + ', ' + departments[activity.department]}"></span>
+                </div>
+                <div class="col-md-6">
+                    <span class="text-muted">Duración:</span>
+                    <span th:text="${activity.durationMinutes} + ' min'"></span>
+                </div>
+                <div class="col-md-6">
+                    <span class="text-muted">Precio por persona:</span>
+                    $ <span th:text="${#numbers.formatDecimal(activity.pricePerPerson, 1, 'POINT', 2, 'COMMA')}"></span>
+                </div>
+                <div class="col-12">
+                    <span class="text-muted">Tipos:</span>
+                    <span class="badge text-bg-light border me-1" th:each="type : ${activity.activityTypes}"
+                          th:text="${type.name}"></span>
+                </div>
+            </div>
+        </div>
+        <div class="card-footer bg-white">
+            <a th:href="@{/provider/activities/{id}/schedules(id=${activity.id})}"
+               class="btn btn-outline-success btn-sm">Fechas y horarios</a>
+        </div>
+    </div>
+
+</main>
+</body>
+</html>
