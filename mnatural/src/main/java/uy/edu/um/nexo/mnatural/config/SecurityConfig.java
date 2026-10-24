@@ -11,6 +11,8 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AuthenticationFailureHandler;
+import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
+import org.springframework.security.web.authentication.SavedRequestAwareAuthenticationSuccessHandler;
 import uy.edu.um.nexo.mnatural.security.AppUserDetailsService;
 import uy.edu.um.nexo.mnatural.security.Role;
 
@@ -47,6 +49,8 @@ public class SecurityConfig {
                                 "/css/**", "/js/**", "/images/**", "/img/**").permitAll()
                         .requestMatchers("/admin/**").hasRole(Role.ADMIN.name())
                         .requestMatchers("/prestador/**").hasRole(Role.PROVIDER.name())
+                        // Espacio del prestador (actividades de Camila)
+                        .requestMatchers("/provider/**").hasRole(Role.PROVIDER.name())
                         .requestMatchers("/turista/**").hasRole(Role.TOURIST.name())
                         .anyRequest().authenticated())
                 // Formulario propio en /login (LoginController). Spring procesa el POST a /login
@@ -54,8 +58,7 @@ public class SecurityConfig {
                         .loginPage("/login")
                         .usernameParameter("email")
                         .passwordParameter("password")
-                        // Vuelve a la página que se quería ver antes del login, o al inicio
-                        .defaultSuccessUrl("/", false)
+                        .successHandler(loginSuccessHandler())
                         .failureHandler(loginFailureHandler())
                         .permitAll())
                 // POST a /logout cierra la sesión
@@ -65,6 +68,23 @@ public class SecurityConfig {
         // CSRF queda activado (es el valor por defecto). Los formularios con th:action
         // ya incluyen el token automáticamente
         return http.build();
+    }
+
+    // El prestador va directo a sus actividades. El resto vuelve a la página
+    // que quería ver antes del login, o al inicio
+    private AuthenticationSuccessHandler loginSuccessHandler() {
+        SavedRequestAwareAuthenticationSuccessHandler defaultHandler = new SavedRequestAwareAuthenticationSuccessHandler();
+        defaultHandler.setDefaultTargetUrl("/");
+
+        return (request, response, authentication) -> {
+            boolean isProvider = authentication.getAuthorities().stream()
+                    .anyMatch(authority -> authority.getAuthority().equals("ROLE_" + Role.PROVIDER.name()));
+            if (isProvider) {
+                response.sendRedirect(request.getContextPath() + "/provider/activities");
+            } else {
+                defaultHandler.onAuthenticationSuccess(request, response, authentication);
+            }
+        };
     }
 
     // Redirige al login con un parámetro distinto según por qué falló,
