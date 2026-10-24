@@ -14,6 +14,14 @@
      (@pedroslinger) — https://unsplash.com/photos/t-DEq-UoICc
    - banner-login.jpg: Punta del Este al atardecer, por Leandro Hernández
      (@untropero) — https://unsplash.com/photos/jHz2WyDBVyo
+   - banner-inicio.jpg: playa de Punta del Este al atardecer, por Pedro Slinger
+     (@pedroslinger) — https://unsplash.com/photos/jDWNR5OLexc
+   - banner-prestador.jpg: caballo en el campo uruguayo, por Romina Mosquera
+     (@artistadementira) — https://unsplash.com/photos/cc58bUVWxWI
+   - banner-admin.jpg: cerros y monte nativo en Maldonado, por Nikolai Kolosov
+     (@nikolaikolosov) — https://unsplash.com/photos/3jBLIAgvU5U
+   - banner-actividades.jpg: camino entre lomas y monte, por Diego Rivero
+     (@dieguitomrb) — https://unsplash.com/photos/ju7-tiagJtc
    ========================================================================= */
 
 @import url("https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap");
@@ -168,6 +176,27 @@ a:hover {
     background: var(--color-primary-dark);
 }
 
+/* Botón dentro de un form en el header (por ejemplo "Cerrar sesión") */
+.site-nav form {
+    margin: 0;
+}
+
+.nav-button {
+    border: 1.5px solid var(--color-border);
+    background: transparent;
+    color: var(--color-text);
+    font: inherit;
+    font-weight: 500;
+    font-size: 0.95rem;
+    padding: 0.45rem 1rem;
+    border-radius: 999px;
+    cursor: pointer;
+}
+
+.nav-button:hover {
+    background: var(--color-surface-alt);
+}
+
 /* ---------- Banner superior ---------- */
 /* Tarjeta grande con foto y título encima. Sin foto usa un degradado verde */
 .hero {
@@ -219,6 +248,43 @@ a:hover {
     background-position: center 40%;
 }
 
+.hero-inicio {
+    background-image:
+        linear-gradient(180deg, rgba(30, 20, 10, 0.15) 0%, rgba(30, 20, 10, 0.50) 100%),
+        url("../img/banner-inicio.jpg");
+    background-position: center 55%;
+}
+
+.hero-prestador {
+    background-image:
+        linear-gradient(180deg, rgba(30, 25, 15, 0.25) 0%, rgba(30, 25, 15, 0.60) 100%),
+        url("../img/banner-prestador.jpg");
+    background-position: center 45%;
+}
+
+.hero-admin {
+    background-image:
+        linear-gradient(180deg, rgba(30, 25, 15, 0.25) 0%, rgba(30, 25, 15, 0.60) 100%),
+        url("../img/banner-admin.jpg");
+    background-position: center 60%;
+}
+
+.hero-actividades {
+    background-image:
+        linear-gradient(180deg, rgba(30, 25, 15, 0.15) 0%, rgba(30, 25, 15, 0.55) 100%),
+        url("../img/banner-actividades.jpg");
+    background-position: center 70%;
+}
+
+/* Banner más bajo para pantallas de trabajo (admin, espacio del prestador) */
+.hero-compact {
+    min-height: 260px;
+}
+
+.hero-compact h1 {
+    font-size: clamp(1.8rem, 4vw, 2.5rem);
+}
+
 .hero .container {
     position: relative;
     z-index: 1;
@@ -248,6 +314,11 @@ a:hover {
     z-index: 2;
     margin-top: -4rem;
     padding-bottom: 4rem;
+}
+
+/* Páginas que empiezan con un botón o un link de volver: no se superponen al banner */
+.page-flat {
+    margin-top: 1.5rem;
 }
 
 .page-narrow {
@@ -468,6 +539,179 @@ a:hover {
     border-color: var(--color-surface-alt);
 }
 
+/* ---------- Otros componentes ---------- */
+.page-wide-xl {
+    max-width: 960px;
+}
+
+/* Link "← volver" arriba del contenido */
+.back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    margin-bottom: 1rem;
+    padding: 0.4rem 0.9rem;
+    border-radius: 999px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    color: var(--color-primary);
+    font-weight: 600;
+    font-size: 0.9rem;
+    box-shadow: var(--shadow);
+}
+
+.back-link:hover {
+    text-decoration: none;
+    background: var(--color-primary-soft);
+}
+
+/* Barra con un título o botón sobre las tarjetas de una lista */
+.toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+}
+
+.card-footer {
+    background: var(--color-surface-alt);
+    border-top: 1px solid var(--color-border);
+    padding: 1rem 1.75rem;
+}
+
+/* Tarjeta de un elemento de una lista (prestador, actividad) */
+.item-card .card-header {
+    justify-content: space-between;
+    flex-wrap: wrap;
+}
+
+.item-card .card-header::before {
+    display: none;
+}
+
+.item-card + .item-card {
+    margin-top: 1.25rem;
+}
+
+.section-title {
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-accent-dark);
+    margin-bottom: 0.75rem;
+}
+
+/* Listas de datos (dt/dd) */
+dl.row dt {
+    font-weight: 600;
+    color: var(--color-muted);
+}
+
+dl.row dd {
+    color: var(--color-text);
+    word-break: break-word;
+}
+
+.text-label {
+    color: var(--color-muted);
+}
+
+/* Etiquetas de estado */
+.badge {
+    border-radius: 999px;
+    padding: 0.4em 0.85em;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+}
+
+.text-bg-success {
+    background-color: var(--color-primary) !important;
+    color: #fff !important;
+}
+
+.text-bg-secondary {
+    background-color: var(--color-brown) !important;
+    color: #fff !important;
+}
+
+.text-bg-light {
+    background-color: var(--color-surface-alt) !important;
+    color: var(--color-text) !important;
+    border-color: var(--color-border) !important;
+}
+
+/* Casillas de verificación */
+.form-check-input {
+    border: 1.5px solid var(--color-border);
+    background-color: #fffdf8;
+}
+
+.form-check-input:checked {
+    background-color: var(--color-primary);
+    border-color: var(--color-primary);
+}
+
+.form-check-input:focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 4px rgba(63, 91, 44, 0.15);
+}
+
+/* Errores que no están debajo de un input (por ejemplo, grupos de casillas) */
+.text-danger {
+    color: var(--color-error) !important;
+    font-weight: 600;
+}
+
+/* Tablas */
+.table {
+    --bs-table-bg: transparent;
+    --bs-table-color: var(--color-text);
+    --bs-table-border-color: var(--color-border);
+    margin-bottom: 0;
+}
+
+.table thead th {
+    color: var(--color-muted);
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    background: var(--color-surface-alt);
+    padding: 0.85rem 1.75rem;
+}
+
+.table tbody td {
+    padding: 0.85rem 1.75rem;
+}
+
+.alert-info {
+    background: var(--color-surface);
+    color: var(--color-muted);
+    border-left: 5px solid var(--color-accent);
+}
+
+.btn-sm {
+    padding: 0.45rem 1.1rem;
+    font-size: 0.88rem;
+}
+
+/* Rechazar: acción destructiva en rojo */
+.btn-outline-danger {
+    color: var(--color-error);
+    border: 2px solid var(--color-error);
+    background: transparent;
+}
+
+.btn-outline-danger:hover,
+.btn-outline-danger:focus {
+    color: #fff;
+    background: var(--color-error);
+    border-color: var(--color-error);
+}
+
 /* ---------- Footer ---------- */
 .site-footer {
     flex-shrink: 0;
@@ -534,6 +778,10 @@ a:hover {
         margin-top: -3rem;
     }
 
+    .page.page-flat {
+        margin-top: 1.25rem;
+    }
+
     .card {
         border-radius: var(--radius);
     }
@@ -552,6 +800,29 @@ a:hover {
 
     .btn-lg {
         width: 100%;
+    }
+
+    .hero-compact {
+        min-height: 220px;
+    }
+
+    .card-footer {
+        padding: 1rem 1.25rem;
+    }
+
+    /* En celular los forms del pie de tarjeta (aprobar / rechazar) ocupan todo el ancho */
+    .card-footer form {
+        width: 100%;
+        flex-wrap: wrap;
+    }
+
+    .card-footer form .btn {
+        width: 100%;
+    }
+
+    .table thead th,
+    .table tbody td {
+        padding: 0.75rem 1rem;
     }
 
     .site-footer .container {

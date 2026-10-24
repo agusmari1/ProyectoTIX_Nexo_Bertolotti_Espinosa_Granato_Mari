@@ -5,20 +5,34 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Fechas y horarios | Uruguay Mnatural</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/css/styles.css}">
 </head>
-<body class="bg-light">
-<main class="container py-5" style="max-width: 760px;">
+<body>
 
-    <a th:href="@{/provider/activities}" class="small">&larr; Mis actividades</a>
-    <h1 class="mt-2 mb-1">Fechas y horarios</h1>
-    <p class="text-muted mb-4" th:text="${activity.name}"></p>
+<header class="site-header">
+    <div class="container">
+        <a th:href="@{/}" class="brand"><span class="brand-mark"></span>Uruguay Mnatural</a>
+    </div>
+</header>
+
+<!-- La foto se define en styles.css (.hero-actividades) -->
+<section class="hero hero-compact hero-photo hero-actividades">
+    <div class="container">
+        <h1>Fechas y horarios</h1>
+        <p th:text="${activity.name}"></p>
+    </div>
+</section>
+
+<main class="page page-flat container page-wide">
+
+    <a th:href="@{/provider/activities}" class="back-link">&larr; Mis actividades</a>
 
     <div class="alert alert-success" th:if="${successMessage}" th:text="${successMessage}"></div>
     <div class="alert alert-danger" th:if="${errorMessage}" th:text="${errorMessage}"></div>
 
     <!-- Nuevo horario -->
     <div class="card mb-4">
-        <div class="card-header fw-semibold">Agregar horario</div>
+        <div class="card-header">Agregar horario</div>
         <div class="card-body">
             <form th:action="@{/provider/activities/{id}/schedules(id=${activity.id})}" th:object="${schedule}"
                   method="post" class="row g-3" novalidate>
@@ -44,29 +58,39 @@
 
     <!-- Horarios cargados -->
     <div class="card">
-        <div class="card-header fw-semibold">Horarios cargados</div>
+        <div class="card-header">Horarios cargados</div>
         <div class="card-body" th:if="${#lists.isEmpty(schedules)}">
             <p class="text-muted mb-0">Todavía no agregaste horarios.</p>
         </div>
-        <table class="table mb-0" th:unless="${#lists.isEmpty(schedules)}">
-            <thead>
-            <tr>
-                <th>Fecha y hora</th>
-                <th>Cupos</th>
-                <th>Estado</th>
-            </tr>
-            </thead>
-            <tbody>
-            <tr th:each="item : ${schedules}">
-                <td th:text="${#temporals.format(item.startDateTime, 'dd/MM/yyyy HH:mm')}"></td>
-                <td th:text="${item.capacity}"></td>
-                <td th:text="${item.status.name() == 'SCHEDULED'} ? 'Programado'
-                             : (${item.status.name() == 'SUSPENDED'} ? 'Suspendido' : 'Finalizado')"></td>
-            </tr>
-            </tbody>
-        </table>
+        <div class="table-responsive" th:unless="${#lists.isEmpty(schedules)}">
+            <table class="table mb-0">
+                <thead>
+                <tr>
+                    <th>Fecha y hora</th>
+                    <th>Cupos</th>
+                    <th>Estado</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="item : ${schedules}">
+                    <td th:text="${#temporals.format(item.startDateTime, 'dd/MM/yyyy HH:mm')}"></td>
+                    <td th:text="${item.capacity}"></td>
+                    <td th:text="${item.status.name() == 'SCHEDULED'} ? 'Programado'
+                                 : (${item.status.name() == 'SUSPENDED'} ? 'Suspendido' : 'Finalizado')"></td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
     </div>
 
 </main>
+
+<footer class="site-footer">
+    <div class="container">
+        <a th:href="@{/}" class="brand"><span class="brand-mark"></span>Uruguay Mnatural</a>
+        <span>Experiencias de naturaleza en todo Uruguay</span>
+    </div>
+</footer>
+
 </body>
 </html>
