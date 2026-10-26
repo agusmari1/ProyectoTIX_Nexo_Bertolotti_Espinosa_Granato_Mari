@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Prestadores pendientes | Uruguay Mnatural</title>
+    <title>Prestadores | Uruguay Mnatural</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" th:href="@{/css/styles.css}">
 </head>
@@ -14,6 +14,7 @@
         <a th:href="@{/}" class="brand"><span class="brand-mark"></span>Uruguay Mnatural</a>
         <nav class="site-nav">
             <a th:href="@{/admin/tipos-actividad}">Tipos de actividad</a>
+            <a th:href="@{/admin/administradores}">Agregar admin</a>
             <form th:action="@{/logout}" method="post">
                 <button type="submit" class="nav-button">Cerrar sesión</button>
             </form>
@@ -24,18 +25,32 @@
 <!-- La foto se define en styles.css (.hero-admin) -->
 <section class="hero hero-compact hero-photo hero-admin">
     <div class="container">
-        <h1>Prestadores pendientes</h1>
+        <h1>Prestadores</h1>
         <p>
-            Solicitudes de registro por orden de llegada. Un prestador aprobado puede ingresar a la plataforma;
-            uno rechazado no.
+            Las solicitudes pendientes, por orden de llegada, y los prestadores que ya fueron aprobados o
+            rechazados. Un prestador aprobado puede ingresar a la plataforma; uno rechazado no.
         </p>
     </div>
 </section>
 
-<main class="page container page-wide-xl">
+<main class="page page-flat container page-wide-xl">
 
     <div class="alert alert-success" th:if="${successMessage}" th:text="${successMessage}"></div>
     <div class="alert alert-danger" th:if="${errorMessage}" th:text="${errorMessage}"></div>
+
+    <div class="d-flex flex-wrap gap-2 mb-4">
+        <a href="#pendientes" class="badge text-bg-warning text-decoration-none fs-6">
+            Pendientes: <span th:text="${#lists.size(providers)}"></span>
+        </a>
+        <a href="#aprobados" class="badge text-bg-success text-decoration-none fs-6">
+            Aprobados: <span th:text="${#lists.size(approvedProviders)}"></span>
+        </a>
+        <a href="#rechazados" class="badge text-bg-secondary text-decoration-none fs-6">
+            Rechazados: <span th:text="${#lists.size(rejectedProviders)}"></span>
+        </a>
+    </div>
+
+    <h2 class="section-title" id="pendientes">Pendientes de aprobación</h2>
 
     <div class="alert alert-info" th:if="${#lists.isEmpty(providers)}">
         No hay prestadores pendientes de aprobación.
@@ -99,6 +114,76 @@
                        maxlength="500" required>
                 <button type="submit" class="btn btn-outline-danger">Rechazar</button>
             </form>
+        </div>
+    </div>
+
+    <h2 class="section-title mt-5" id="aprobados">Aprobados</h2>
+
+    <div class="alert alert-info" th:if="${#lists.isEmpty(approvedProviders)}">
+        Todavía no aprobaste a ningún prestador.
+    </div>
+
+    <div class="card item-card" th:unless="${#lists.isEmpty(approvedProviders)}">
+        <div class="table-responsive">
+            <table class="table align-middle mb-0">
+                <thead>
+                <tr>
+                    <th>Prestador</th>
+                    <th>Emprendimiento</th>
+                    <th>Aprobado el</th>
+                    <th>Por</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="provider : ${approvedProviders}">
+                    <td>
+                        <div th:text="${provider.name + ' ' + provider.lastName}"></div>
+                        <div class="text-muted small" th:text="${provider.email}"></div>
+                    </td>
+                    <td>
+                        <div th:each="business : ${provider.businesses}" th:text="${business.name}"></div>
+                    </td>
+                    <td th:text="${provider.reviewedAt != null} ? ${#temporals.format(provider.reviewedAt, 'dd/MM/yyyy HH:mm')} : '—'"></td>
+                    <td th:text="${provider.reviewedBy != null} ? ${provider.reviewedBy.name + ' ' + provider.reviewedBy.lastName} : '—'"></td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <h2 class="section-title mt-5" id="rechazados">Rechazados</h2>
+
+    <div class="alert alert-info" th:if="${#lists.isEmpty(rejectedProviders)}">
+        Todavía no rechazaste a ningún prestador.
+    </div>
+
+    <div class="card item-card" th:unless="${#lists.isEmpty(rejectedProviders)}">
+        <div class="table-responsive">
+            <table class="table align-middle mb-0">
+                <thead>
+                <tr>
+                    <th>Prestador</th>
+                    <th>Emprendimiento</th>
+                    <th>Rechazado el</th>
+                    <th>Por</th>
+                    <th>Motivo</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="provider : ${rejectedProviders}">
+                    <td>
+                        <div th:text="${provider.name + ' ' + provider.lastName}"></div>
+                        <div class="text-muted small" th:text="${provider.email}"></div>
+                    </td>
+                    <td>
+                        <div th:each="business : ${provider.businesses}" th:text="${business.name}"></div>
+                    </td>
+                    <td th:text="${provider.reviewedAt != null} ? ${#temporals.format(provider.reviewedAt, 'dd/MM/yyyy HH:mm')} : '—'"></td>
+                    <td th:text="${provider.reviewedBy != null} ? ${provider.reviewedBy.name + ' ' + provider.reviewedBy.lastName} : '—'"></td>
+                    <td th:text="${provider.rejectionReason != null} ? ${provider.rejectionReason} : '—'"></td>
+                </tr>
+                </tbody>
+            </table>
         </div>
     </div>
 

@@ -30,9 +30,12 @@ public class AdminController {
         this.adminRepository = adminRepository;
     }
 
+    // Pantalla principal del admin: pendientes (con aprobar y rechazar), aprobados y rechazados
     @GetMapping
-    public String listPending(Model model) {
+    public String list(Model model) {
         model.addAttribute("providers", adminService.findPendingProviders());
+        model.addAttribute("approvedProviders", adminService.findApprovedProviders());
+        model.addAttribute("rejectedProviders", adminService.findRejectedProviders());
         return "admin/prestadores";
     }
 
