@@ -46,6 +46,39 @@ Se completa a pedido: decile a Claude "agregá a la bitácora: …" y lo suma co
   - "Agregar admin": un admin crea a otros. El usuario es el correo. La contraseña la genera el sistema al azar y se manda solo por correo; botón "Enviar nueva contraseña".
   - `AdminSeeder` crea el primer admin solo si no hay ninguno, con la contraseña de `ADMIN_PASSWORD` (si falta, genera una y la muestra una vez en el log).
 
+## Detalle: tipos de actividad y administradores (26/10/2026)
+
+### Tipos de actividad — `/admin/tipos-actividad` (solo ADMIN)
+- **Qué se puede hacer:** agregar, renombrar, activar/desactivar y borrar. La lista muestra cuántas actividades usa cada tipo.
+- **Reglas:**
+  - El nombre es obligatorio y no se puede repetir, sin distinguir mayúsculas, tildes ni espacios de más ("senderismo", "Senderismó" y "SENDERISMO" cuentan como el mismo).
+  - Un tipo con actividades no se borra (aparece un aviso y el botón queda deshabilitado): se desactiva.
+  - Un tipo desactivado no se ofrece para actividades nuevas, pero las que ya lo tienen lo conservan.
+  - No hay tipos cargados de antemano. Hasta que el admin cargue uno, ningún prestador puede crear actividades.
+- **Lado del prestador:** en `/provider/activities/new` los tipos activos son botones de selección múltiple (uno o más). Si no elige ninguno, el formulario muestra el error "Elegí al menos un tipo de actividad.".
+- **Archivos:** `AdminActivityTypeController`, `ActivityTypeService`, `ActivityTypeDTO`, `ActivityTypeException` y `ActivityTypeNotFoundException`, vista `admin/tipos-actividad.html`, dos consultas nuevas en `ActivityTypeRepository` y el bloque de tipos de `provider/activities/form.html` (de Camila).
+- **Detalle técnico:** los checkboxes del formulario no usan `th:field`, porque agrega un input oculto entre el checkbox y su botón y Bootstrap deja de pintar el botón marcado.
+- **Tests:** `ActivityTypeServiceTest` (11).
+
+### Administradores — `/admin/administradores` (solo ADMIN)
+- **Qué se puede hacer:** ver la lista de admins, crear uno (nombre, apellido, fecha de nacimiento y correo) y generarle una contraseña nueva a uno existente.
+- **Reglas:**
+  - El usuario del admin nuevo es su correo. No puede estar usado por ningún usuario del sistema y tiene que tener el formato `algo@algo.algo` (el mismo que exige el login).
+  - La contraseña (16 caracteres) la genera el sistema al azar, se guarda con BCrypt y se manda solo por correo; quien lo crea no la ve.
+  - "Enviar nueva contraseña" genera otra y la anterior deja de servir. Sirve si el primer correo no llegó.
+  - Tipo y número de documento del admin nuevo quedan con valores de relleno (`OTHER` / `00000000`).
+- **Panel principal:** al iniciar sesión el admin va a `/admin/prestadores`, con prestadores pendientes, aprobados y rechazados y un menú hacia "Tipos de actividad" y "Agregar admin".
+- **Seguridad:** `/admin/**` exige el rol ADMIN (un prestador recibe 403; sin sesión se redirige al login).
+- **Correo:** con `app.mail.enabled=false` no sale ningún mail y la contraseña generada queda impresa en el log. Con el correo activado nunca se escribe en el log. Si el envío falla, el admin queda creado igual.
+- **Archivos:** `AdminAccountController`, `AdminAccountService`, `AdminRegistrationDTO`, `AdminCreatedEvent`, `AdminPasswordResetEvent` y `AdminCreatedNotifier`, `PasswordGenerator`, `AdminNotFoundException`, dos correos nuevos en `EmailService`, `AdminSeeder` y la vista `admin/administradores.html`. En `SecurityConfig` se agregó la redirección del admin al panel.
+- **Tests:** `AdminAccountServiceTest` (5), `PasswordGeneratorTest` (2), `AdminSeederTest` (4) y los correos nuevos en `EmailServiceTest`.
+
+### Cómo probarlo
+1. Entrar como admin (si no se definió `ADMIN_PASSWORD`, la contraseña inicial está en el log del primer arranque).
+2. *Tipos de actividad*: agregar "Senderismo" y "Gastronomía"; probar agregar "senderismo" (lo rechaza).
+3. Entrar como prestador aprobado → *Nueva actividad*: elegir dos tipos y guardar; probar enviarlo sin tipos.
+4. *Agregar admin*: crear uno, buscar su contraseña en el log (con el correo desactivado), entrar con ese correo y esa contraseña, y probar *Enviar nueva contraseña*.
+
 ## Decisiones
 - El **usuario** de todos es el correo (el login no tiene un campo "usuario" aparte).
 - La contraseña de un admin nuevo no la elige nadie: **al azar y solo por correo**.
