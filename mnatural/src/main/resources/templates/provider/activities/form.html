@@ -71,10 +71,18 @@
                 </div>
 
                 <div class="col-12">
-                    <span class="form-label d-block">Tipos de actividad</span>
-                    <div class="form-check form-check-inline" th:each="type : ${activityTypes}">
-                        <input type="checkbox" class="form-check-input" th:field="*{activityTypeIds}" th:value="${type.id}">
-                        <label class="form-check-label" th:for="${#ids.prev('activityTypeIds')}" th:text="${type.name}"></label>
+                    <span class="form-label d-block">Tipos de actividad <span class="text-muted">(elegí uno o más)</span></span>
+                    <!-- Botones de selección múltiple: cada checkbox con btn-check se ve como un botón que se marca.
+                         No se usa th:field porque agrega un input oculto entre el checkbox y su label, y así
+                         Bootstrap no llega a pintar el botón marcado (necesita que el label sea el siguiente) -->
+                    <div class="d-flex flex-wrap gap-2">
+                        <th:block th:each="type : ${activityTypes}">
+                            <input type="checkbox" class="btn-check" autocomplete="off" name="activityTypeIds"
+                                   th:id="|activityType-${type.id}|" th:value="${type.id}"
+                                   th:checked="${activity.activityTypeIds.contains(type.id)}">
+                            <label class="btn btn-outline-success" th:for="|activityType-${type.id}|"
+                                   th:text="${type.name}"></label>
+                        </th:block>
                     </div>
                     <div class="text-muted small" th:if="${#lists.isEmpty(activityTypes)}">
                         No hay tipos de actividad disponibles. Pedile a un administrador que los cargue.
