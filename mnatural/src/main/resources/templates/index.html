@@ -13,7 +13,12 @@
     <div class="container">
         <a th:href="@{/}" class="brand"><span class="brand-mark"></span>Uruguay Mnatural</a>
         <nav class="site-nav">
-            <a th:href="@{/login}" class="nav-cta">Iniciar sesión</a>
+            <!-- Visitante: iniciar sesión. Con la sesión iniciada: su panel (si tiene) y cerrar sesión -->
+            <a th:if="${loggedInAs == null}" th:href="@{/login}" class="nav-cta">Iniciar sesión</a>
+            <a th:if="${loggedInAs != null and panelUrl != null}" th:href="@{${panelUrl}}">Mi panel</a>
+            <form th:if="${loggedInAs != null}" th:action="@{/logout}" method="post">
+                <button type="submit" class="nav-button">Cerrar sesión</button>
+            </form>
         </nav>
     </div>
 </header>
@@ -30,19 +35,39 @@
 
     <div class="card card-feature">
         <div class="card-body">
-            <div class="d-grid gap-3">
-                <a th:href="@{/registro/turista}" class="btn btn-outline-success btn-lg">
-                    Registrarme como turista
-                </a>
+            <!-- Visitante: los dos registros y el link para iniciar sesión -->
+            <th:block th:if="${loggedInAs == null}">
+                <div class="d-grid gap-3">
+                    <a th:href="@{/registro/turista}" class="btn btn-outline-success btn-lg">
+                        Registrarme como turista
+                    </a>
 
-                <a th:href="@{/registro/prestador}" class="btn btn-success btn-lg">
-                    Registrarme como prestador
-                </a>
-            </div>
+                    <a th:href="@{/registro/prestador}" class="btn btn-success btn-lg">
+                        Registrarme como prestador
+                    </a>
+                </div>
 
-            <p class="text-muted mt-4 mb-0">
-                ¿Ya tenés cuenta? <a th:href="@{/login}">Iniciá sesión</a>
-            </p>
+                <p class="text-muted mt-4 mb-0">
+                    ¿Ya tenés cuenta? <a th:href="@{/login}">Iniciá sesión</a>
+                </p>
+            </th:block>
+
+            <!-- Con la sesión iniciada: ya no tiene sentido registrarse ni volver a iniciar sesión -->
+            <th:block th:if="${loggedInAs != null}">
+                <p class="text-muted mb-4">
+                    Iniciaste sesión como <strong th:text="${loggedInAs}"></strong>.
+                </p>
+
+                <div class="d-grid gap-3">
+                    <a th:if="${panelUrl != null}" th:href="@{${panelUrl}}" class="btn btn-success btn-lg">
+                        Ir a mi panel
+                    </a>
+
+                    <a th:href="@{/actividades}" class="btn btn-outline-success btn-lg">
+                        Ver actividades
+                    </a>
+                </div>
+            </th:block>
         </div>
     </div>
 
