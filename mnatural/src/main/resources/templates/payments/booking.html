@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Pago de la reserva | Uruguay Mnatural</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/css/styles.css}">
+</head>
+<body>
+
+<header class="site-header">
+    <div class="container">
+        <a th:href="@{/}" class="brand"><span class="brand-mark"></span>Uruguay Mnatural</a>
+    </div>
+</header>
+
+<!-- La foto se define en styles.css (.hero-actividades) -->
+<section class="hero hero-compact hero-photo hero-actividades">
+    <div class="container">
+        <h1>Tu reserva</h1>
+        <p th:text="${payment.activityName}"></p>
+    </div>
+</section>
+
+<main class="page page-flat container page-wide">
+
+    <div class="alert alert-success" th:if="${successMessage}" th:text="${successMessage}"></div>
+    <div class="alert alert-info" th:if="${infoMessage}" th:text="${infoMessage}"></div>
+    <div class="alert alert-danger" th:if="${errorMessage}" th:text="${errorMessage}"></div>
+
+    <!-- Resumen -->
+    <div class="card mb-4">
+        <div class="card-header">Resumen</div>
+        <div class="card-body">
+            <dl class="row mb-0">
+                <dt class="col-sm-4">Actividad</dt>
+                <dd class="col-sm-8" th:text="${payment.activityName}"></dd>
+
+                <dt class="col-sm-4">Fecha y hora</dt>
+                <dd class="col-sm-8" th:text="${#temporals.format(payment.startDateTime, 'dd/MM/yyyy HH:mm')}"></dd>
+
+                <dt class="col-sm-4">Participantes</dt>
+                <dd class="col-sm-8" th:text="${payment.participantCount}"></dd>
+
+                <dt class="col-sm-4">Total</dt>
+                <dd class="col-sm-8" th:text="'$ ' + ${#numbers.formatDecimal(payment.totalAmount, 1, 'POINT', 2, 'COMMA')} + ' (pesos uruguayos)'"></dd>
+
+                <dt class="col-sm-4">Estado</dt>
+                <dd class="col-sm-8" th:switch="${payment.status.name()}">
+                    <span th:case="'CONFIRMED'" class="badge text-bg-success">Confirmada</span>
+                    <span th:case="'PENDING'" class="badge text-bg-warning">Pendiente de pago</span>
+                    <span th:case="'EXPIRED'" class="badge text-bg-secondary">Vencida</span>
+                    <span th:case="'CANCELLED'" class="badge text-bg-secondary">Cancelada</span>
+                </dd>
+            </dl>
+        </div>
+    </div>
+
+    <!-- Confirmada: el código que se presenta el día de la actividad -->
+    <div class="card mb-4 border-success" th:if="${payment.bookingCode}">
+        <div class="card-body text-center">
+            <p class="mb-1">Tu código de reserva</p>
+            <p class="display-6 fw-bold mb-1" th:text="${payment.bookingCode}"></p>
+            <img th:src="@{/payments/bookings/{id}/qr.png(id=${payment.bookingId})}" width="220" height="220"
+                 class="my-2" th:alt="'Código QR de la reserva ' + ${payment.bookingCode}">
+            <p class="text-muted mb-0">Presentá el código o el QR el día de la actividad. También te lo mandamos por mail.</p>
+        </div>
+    </div>
+
+    <!-- Pendiente: botón de pagar y plazo -->
+    <div class="card mb-4" th:if="${payment.payable}">
+        <div class="card-body">
+            <p th:if="${payment.heldUntil}">
+                Tus lugares están guardados hasta las
+                <strong th:text="${#temporals.format(payment.heldUntil, 'HH:mm')}"></strong>
+                del <span th:text="${#temporals.format(payment.heldUntil, 'dd/MM/yyyy')}"></span>.
+                Si no se paga antes, la reserva se cancela y los lugares se liberan.
+            </p>
+            <form th:action="@{/payments/bookings/{id}/start(id=${payment.bookingId})}" method="post">
+                <button type="submit" class="btn btn-success"
+                        th:text="${#lists.isEmpty(payment.attempts)} ? 'Pagar' : 'Intentar pagar de nuevo'">Pagar</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Intentos de pago -->
+    <div class="card" th:unless="${#lists.isEmpty(payment.attempts)}">
+        <div class="card-header">Intentos de pago</div>
+        <div class="table-responsive">
+            <table class="table mb-0">
+                <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Fecha</th>
+                    <th>Resultado</th>
+                    <th>Tarjeta</th>
+                    <th>Detalle</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="attempt : ${payment.attempts}">
+                    <td th:text="${attempt.attemptNumber}"></td>
+                    <td th:text="${#temporals.format(attempt.createdAt, 'dd/MM/yyyy HH:mm')}"></td>
+                    <td th:switch="${attempt.status.name()}">
+                        <span th:case="'APPROVED'">Aprobado</span>
+                        <span th:case="'PENDING'">En proceso</span>
+                        <span th:case="'REJECTED'">Rechazado</span>
+                        <span th:case="'ERROR'">Error</span>
+                    </td>
+                    <td th:text="${attempt.cardLastFour} ? ${attempt.cardBrand} + ' terminada en ' + ${attempt.cardLastFour} : '-'"></td>
+                    <td th:text="${attempt.failureReason} ?: ''"></td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</main>
+
+<footer class="site-footer">
+    <div class="container">
+        <a th:href="@{/}" class="brand"><span class="brand-mark"></span>Uruguay Mnatural</a>
+        <span>Experiencias de naturaleza en todo Uruguay</span>
+    </div>
+</footer>
+
+</body>
+</html>
