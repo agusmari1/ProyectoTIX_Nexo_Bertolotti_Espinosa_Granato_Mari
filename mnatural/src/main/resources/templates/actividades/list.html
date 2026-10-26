@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Actividades | Uruguay Mnatural</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/css/styles.css}">
+</head>
+<body>
+
+<header class="site-header">
+    <div class="container">
+        <a th:href="@{/}" class="brand"><span class="brand-mark"></span>Uruguay Mnatural</a>
+        <nav class="site-nav">
+            <a th:href="@{/login}" class="nav-cta">Iniciar sesión</a>
+        </nav>
+    </div>
+</header>
+
+<!-- La foto se define en styles.css (.hero-actividades) -->
+<section class="hero hero-compact hero-photo hero-actividades">
+    <div class="container">
+        <h1>Actividades</h1>
+        <p>Descubrí experiencias de naturaleza en todo Uruguay y reservá tu lugar.</p>
+    </div>
+</section>
+
+<main class="page page-flat container page-wide-xl">
+
+    <div class="alert alert-danger" th:if="${errorMessage}" th:text="${errorMessage}"></div>
+
+    <!-- Formulario GET: los filtros quedan en la URL. Todos son opcionales y se combinan -->
+    <form th:action="@{/actividades}" method="get" th:object="${filter}" class="card mb-4">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-4 col-lg-2">
+                    <label for="department" class="form-label">Departamento</label>
+                    <select id="department" th:field="*{department}" class="form-select">
+                        <option value="">Todos</option>
+                        <option th:each="dep : ${departments}" th:value="${dep.key}" th:text="${dep.value}"></option>
+                    </select>
+                </div>
+                <div class="col-md-4 col-lg-2">
+                    <label for="locality" class="form-label">Localidad</label>
+                    <input type="text" id="locality" th:field="*{locality}" class="form-control"
+                           maxlength="100" placeholder="Ej.: Piriápolis">
+                </div>
+                <div class="col-md-4 col-lg-2">
+                    <label for="activityTypeId" class="form-label">Tipo</label>
+                    <select id="activityTypeId" th:field="*{activityTypeId}" class="form-select">
+                        <option value="">Todos</option>
+                        <option th:each="type : ${activityTypes}" th:value="${type.id}" th:text="${type.name}"></option>
+                    </select>
+                </div>
+                <div class="col-md-4 col-lg-2">
+                    <label for="date" class="form-label">Fecha</label>
+                    <input type="date" id="date" th:field="*{date}" class="form-control">
+                </div>
+                <div class="col-6 col-md-2 col-lg-2">
+                    <label for="minPrice" class="form-label">Precio desde</label>
+                    <input type="number" id="minPrice" th:field="*{minPrice}" class="form-control"
+                           min="0" step="1" placeholder="$">
+                </div>
+                <div class="col-6 col-md-2 col-lg-2">
+                    <label for="maxPrice" class="form-label">Precio hasta</label>
+                    <input type="number" id="maxPrice" th:field="*{maxPrice}" class="form-control"
+                           min="0" step="1" placeholder="$">
+                </div>
+            </div>
+        </div>
+        <div class="card-footer d-flex gap-2 justify-content-end">
+            <a th:href="@{/actividades}" class="btn btn-outline-secondary">Limpiar filtros</a>
+            <button type="submit" class="btn btn-success">Buscar</button>
+        </div>
+    </form>
+
+    <!-- Mensajes cuando no hay nada para mostrar: distinto si hay filtros o no -->
+    <div class="alert alert-info" th:if="${#lists.isEmpty(activities) and filter.empty}">
+        Todavía no hay actividades publicadas. ¡Volvé pronto, se vienen nuevas experiencias!
+    </div>
+    <div class="alert alert-info" th:if="${#lists.isEmpty(activities) and !filter.empty}">
+        No encontramos actividades con esos filtros. Probá quitando alguno o
+        <a th:href="@{/actividades}">mirá todas las actividades</a>.
+    </div>
+
+    <p class="text-muted" th:unless="${#lists.isEmpty(activities)}"
+       th:text="${#lists.size(activities) == 1} ? '1 actividad encontrada' : ${#lists.size(activities)} + ' actividades encontradas'"></p>
+
+    <div class="row g-3">
+        <div class="col-md-6 col-lg-4" th:each="activity : ${activities}">
+            <div class="card item-card h-100">
+                <div class="card-header">
+                    <span th:text="${activity.name}"></span>
+                </div>
+                <div class="card-body">
+                    <p class="small text-muted mb-2"
+                       th:text="${activity.locality + ', ' + departments[activity.department]}"></p>
+                    <p class="small" th:text="${#strings.abbreviate(activity.description, 140)}"></p>
+                    <div class="mb-2">
+                        <span class="badge text-bg-light border me-1" th:each="type : ${activity.activityTypes}"
+                              th:text="${type.name}"></span>
+                    </div>
+                    <div class="row g-2 small">
+                        <div class="col-6">
+                            <span class="text-label">Duración:</span>
+                            <span th:text="${activity.durationMinutes} + ' min'"></span>
+                        </div>
+                        <div class="col-6">
+                            <span class="text-label">Por persona:</span>
+                            $ <span th:text="${#numbers.formatDecimal(activity.pricePerPerson, 1, 'POINT', 2, 'COMMA')}"></span>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <a th:href="@{/actividades/{id}(id=${activity.id})}" class="btn btn-outline-success btn-sm">Ver detalle</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</main>
+
+<footer class="site-footer">
+    <div class="container">
+        <a th:href="@{/}" class="brand"><span class="brand-mark"></span>Uruguay Mnatural</a>
+        <span>Experiencias de naturaleza en todo Uruguay</span>
+    </div>
+</footer>
+
+</body>
+</html>
