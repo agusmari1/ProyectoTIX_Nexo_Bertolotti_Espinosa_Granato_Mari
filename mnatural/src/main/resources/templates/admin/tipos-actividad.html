@@ -13,7 +13,8 @@
     <div class="container">
         <a th:href="@{/}" class="brand"><span class="brand-mark"></span>Uruguay Mnatural</a>
         <nav class="site-nav">
-            <a th:href="@{/admin/prestadores}">Prestadores pendientes</a>
+            <a th:href="@{/admin/prestadores}">Prestadores</a>
+            <a th:href="@{/admin/administradores}">Agregar admin</a>
             <form th:action="@{/logout}" method="post">
                 <button type="submit" class="nav-button">Cerrar sesión</button>
             </form>
@@ -32,7 +33,7 @@
     </div>
 </section>
 
-<main class="page container page-wide-xl">
+<main class="page page-flat container page-wide-xl">
 
     <div class="alert alert-success" th:if="${successMessage}" th:text="${successMessage}"></div>
     <div class="alert alert-danger" th:if="${errorMessage}" th:text="${errorMessage}"></div>

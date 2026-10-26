@@ -33,6 +33,17 @@ public class AdminService {
         return providerRepository.findByApprovalStatusOrderByRequestedAtAscIdAsc(ApprovalStatus.PENDING);
     }
 
+    // Los ya resueltos, del más reciente al más antiguo
+    @Transactional(readOnly = true)
+    public List<Provider> findApprovedProviders() {
+        return providerRepository.findResolvedByStatus(ApprovalStatus.APPROVED);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Provider> findRejectedProviders() {
+        return providerRepository.findResolvedByStatus(ApprovalStatus.REJECTED);
+    }
+
     @Transactional
     public Provider approve(Long providerId, Admin admin) {
         Provider provider = findPendingProvider(providerId);

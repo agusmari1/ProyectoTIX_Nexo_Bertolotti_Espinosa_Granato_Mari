@@ -37,7 +37,16 @@ public class EmailService {
         this.baseUrl = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
     }
 
-    // Mensaje de texto simple. Nunca lanza una excepción
+    // Si el envío está activado (app.mail.enabled=true). Sirve para avisarle al usuario
+    // si el mensaje realmente salió o solo se imprimió en el log
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    // Mensaje de texto simple. Nunca lanza una excepción.
+    // Con el correo deshabilitado el mensaje se imprime COMPLETO en el log, y eso incluye una
+    // contraseña si el mensaje la lleva (ver sendAdminCreated): en desarrollo es la única forma de
+    // conocerla. Con el correo activado el log solo registra a quién se mandó y con qué asunto
     public void send(String to, String subject, String body) {
         if (!enabled) {
             log.info("Correo deshabilitado (app.mail.enabled=false), no se envía. Mensaje:\n"
@@ -68,6 +77,31 @@ public class EmailService {
                 + "¡Bienvenido/a!\n"
                 + "Equipo de Uruguay Mnatural";
         send(provider.getEmail(), "Tu solicitud fue aprobada - Uruguay Mnatural", body);
+    }
+
+    // Datos de acceso de un administrador nuevo: su usuario es el correo y la contraseña la generó
+    // el sistema al azar, así que este correo es el único lugar donde se la manda
+    public void sendAdminCreated(String name, String email, String password) {
+        send(email, "Tu cuenta de administrador - Uruguay Mnatural", accessBody(name, email, password,
+                "Se creó tu cuenta de administrador en Uruguay Mnatural."));
+    }
+
+    // Contraseña nueva para un admin que ya existía (se generó otra al azar y la anterior dejó de servir)
+    public void sendAdminPasswordReset(String name, String email, String password) {
+        send(email, "Tu nueva contraseña - Uruguay Mnatural", accessBody(name, email, password,
+                "Se generó una contraseña nueva para tu cuenta de administrador en Uruguay Mnatural. "
+                        + "La anterior ya no sirve."));
+    }
+
+    private String accessBody(String name, String email, String password, String intro) {
+        return "Hola " + name + ",\n\n"
+                + intro + " Para ingresar usá estos datos:\n\n"
+                + "Usuario: " + email + "\n"
+                + "Contraseña: " + password + "\n\n"
+                + "Ingresá desde " + baseUrl + "/login\n\n"
+                + "La contraseña se generó automáticamente y solo se mandó a este correo. "
+                + "No la compartas con nadie.\n\n"
+                + "Equipo de Uruguay Mnatural";
     }
 
     public void sendProviderRejected(Provider provider, String reason) {

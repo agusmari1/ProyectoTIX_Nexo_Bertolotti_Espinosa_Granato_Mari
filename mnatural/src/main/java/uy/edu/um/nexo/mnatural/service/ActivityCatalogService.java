@@ -79,8 +79,8 @@ public class ActivityCatalogService {
         return catalogRepository.findByIdAndStatus(activityId, ActivityStatus.PUBLISHED);
     }
 
-    // Próximas fechas con sus lugares libres. Los lugares salen de BookingService
-    // (reservas confirmadas y pendientes vigentes), no del campo availableSpots de ActivitySchedule
+    // Próximas fechas con sus lugares libres. Los lugares no se guardan en el horario:
+    // los calcula BookingService a partir de las reservas confirmadas y pendientes vigentes
     @Transactional(readOnly = true)
     public List<ScheduleAvailabilityDTO> upcomingSchedules(Activity activity) {
         LocalDateTime now = LocalDateTime.now();

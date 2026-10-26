@@ -108,6 +108,49 @@ class EmailServiceTest {
     }
 
     @Test
+    void adminCreatedMessageHasTheUsernameAndThePassword() {
+        service(true).sendAdminCreated("Lucía", "lucia@ejemplo.test", "clave-de-prueba-1");
+
+        SimpleMailMessage message = sentMessage();
+        assertThat(message.getTo()).containsExactly("lucia@ejemplo.test");
+        assertThat(message.getSubject()).contains("cuenta de administrador");
+        assertThat(message.getText())
+                .contains("Hola Lucía")
+                .contains("Usuario: lucia@ejemplo.test")
+                .contains("Contraseña: clave-de-prueba-1")
+                .contains(BASE_URL + "/login");
+    }
+
+    @Test
+    void adminPasswordResetMessageHasTheNewPassword() {
+        service(true).sendAdminPasswordReset("Lucía", "lucia@ejemplo.test", "clave-nueva-2");
+
+        SimpleMailMessage message = sentMessage();
+        assertThat(message.getSubject()).contains("nueva contraseña");
+        assertThat(message.getText())
+                .contains("Contraseña: clave-nueva-2")
+                .contains("La anterior ya no sirve");
+    }
+
+    @Test
+    void withTheMailDisabledTheLogShowsTheGeneratedPasswordSoItCanBeUsedInDevelopment(CapturedOutput output) {
+        service(false).sendAdminCreated("Lucía", "lucia@ejemplo.test", "clave-de-prueba-1");
+
+        verify(mailSender, never()).send(any(SimpleMailMessage.class));
+        assertThat(output.getAll())
+                .contains("lucia@ejemplo.test")
+                .contains("Contraseña: clave-de-prueba-1");
+    }
+
+    @Test
+    void withTheMailEnabledThePasswordIsNeverWrittenToTheLog(CapturedOutput output) {
+        service(true).sendAdminCreated("Lucía", "lucia@ejemplo.test", "clave-de-prueba-1");
+
+        verify(mailSender).send(any(SimpleMailMessage.class));
+        assertThat(output.getAll()).contains("Correo enviado a lucia@ejemplo.test").doesNotContain("clave-de-prueba-1");
+    }
+
+    @Test
     void withoutAnAccountTheFromAddressIsNotSet() {
         new EmailService(mailSender, true, "", BASE_URL).send("ana@ejemplo.test", "Asunto", "Cuerpo");
 

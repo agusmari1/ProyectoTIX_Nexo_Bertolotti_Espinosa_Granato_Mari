@@ -70,8 +70,8 @@ public class SecurityConfig {
         return http.build();
     }
 
-    // El prestador va directo a sus actividades. El resto vuelve a la página
-    // que quería ver antes del login, o al inicio
+    // El prestador va directo a sus actividades y el admin a su panel de prestadores. El resto
+    // vuelve a la página que quería ver antes del login, o al inicio
     private AuthenticationSuccessHandler loginSuccessHandler() {
         SavedRequestAwareAuthenticationSuccessHandler defaultHandler = new SavedRequestAwareAuthenticationSuccessHandler();
         defaultHandler.setDefaultTargetUrl("/");
@@ -79,8 +79,12 @@ public class SecurityConfig {
         return (request, response, authentication) -> {
             boolean isProvider = authentication.getAuthorities().stream()
                     .anyMatch(authority -> authority.getAuthority().equals("ROLE_" + Role.PROVIDER.name()));
+            boolean isAdmin = authentication.getAuthorities().stream()
+                    .anyMatch(authority -> authority.getAuthority().equals("ROLE_" + Role.ADMIN.name()));
             if (isProvider) {
                 response.sendRedirect(request.getContextPath() + "/provider/activities");
+            } else if (isAdmin) {
+                response.sendRedirect(request.getContextPath() + "/admin/prestadores");
             } else {
                 defaultHandler.onAuthenticationSuccess(request, response, authentication);
             }
