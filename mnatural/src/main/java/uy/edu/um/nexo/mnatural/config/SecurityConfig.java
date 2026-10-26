@@ -45,7 +45,7 @@ public class SecurityConfig {
                 // Si agregan una pantalla pública nueva (por ejemplo el portal de actividades),
                 // hay que sumarla a la primera lista
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/", "/login", "/registro/**", "/error",
+                        .requestMatchers("/", "/login", "/registro/**", "/actividades/**", "/error",
                                 "/css/**", "/js/**", "/images/**", "/img/**").permitAll()
                         .requestMatchers("/admin/**").hasRole(Role.ADMIN.name())
                         .requestMatchers("/prestador/**").hasRole(Role.PROVIDER.name())

@@ -19,23 +19,16 @@ public class ActivitySchedule {
     @Column(nullable = false)
     private LocalDateTime startDateTime;
 
+    // Cupos totales. Los libres no se guardan: se calculan a partir de las reservas
+    // con BookingService.availableSpots(scheduleId)
     @Column(nullable = false)
     private int capacity;
-
-    @Column(nullable = false)
-    private int availableSpots;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private ScheduleStatus status = ScheduleStatus.SCHEDULED;
 
     public ActivitySchedule() {
-    }
-
-    // Al crear el horario todavía no hay reservas, así que todos los cupos están libres
-    @PrePersist
-    protected void onCreate() {
-        availableSpots = capacity;
     }
 
     public Long getId() {
@@ -68,14 +61,6 @@ public class ActivitySchedule {
 
     public void setCapacity(int capacity) {
         this.capacity = capacity;
-    }
-
-    public int getAvailableSpots() {
-        return availableSpots;
-    }
-
-    public void setAvailableSpots(int availableSpots) {
-        this.availableSpots = availableSpots;
     }
 
     public ScheduleStatus getStatus() {
