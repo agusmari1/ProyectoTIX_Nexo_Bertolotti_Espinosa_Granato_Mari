@@ -67,16 +67,22 @@
                 <thead>
                 <tr>
                     <th>Fecha y hora</th>
-                    <th>Cupos</th>
+                    <th>Capacidad</th>
+                    <th>Lugares libres</th>
                     <th>Estado</th>
                 </tr>
                 </thead>
                 <tbody>
                 <tr th:each="item : ${schedules}">
-                    <td th:text="${#temporals.format(item.startDateTime, 'dd/MM/yyyy HH:mm')}"></td>
-                    <td th:text="${item.capacity}"></td>
-                    <td th:text="${item.status.name() == 'SCHEDULED'} ? 'Programado'
-                                 : (${item.status.name() == 'SUSPENDED'} ? 'Suspendido' : 'Finalizado')"></td>
+                    <td th:text="${#temporals.format(item.schedule.startDateTime, 'dd/MM/yyyy HH:mm')}"></td>
+                    <td th:text="${item.schedule.capacity}"></td>
+                    <!-- Calculado con BookingService.availableSpots: confirmadas y pendientes con retención vigente -->
+                    <td>
+                        <span th:text="${item.availableSpots}"></span>
+                        <span class="badge text-bg-secondary ms-1" th:if="${item.availableSpots == 0}">Completo</span>
+                    </td>
+                    <td th:text="${item.schedule.status.name() == 'SCHEDULED'} ? 'Programado'
+                                 : (${item.schedule.status.name() == 'SUSPENDED'} ? 'Suspendido' : 'Finalizado')"></td>
                 </tr>
                 </tbody>
             </table>

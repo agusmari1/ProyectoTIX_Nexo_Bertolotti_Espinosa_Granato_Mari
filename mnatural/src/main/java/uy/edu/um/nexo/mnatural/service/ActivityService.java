@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import uy.edu.um.nexo.mnatural.dto.ActivityDTO;
 import uy.edu.um.nexo.mnatural.dto.ActivityScheduleDTO;
+import uy.edu.um.nexo.mnatural.dto.ProviderScheduleDTO;
 import uy.edu.um.nexo.mnatural.entities.Activity;
 import uy.edu.um.nexo.mnatural.entities.ActivitySchedule;
 import uy.edu.um.nexo.mnatural.entities.ActivityStatus;
@@ -39,15 +40,18 @@ public class ActivityService {
     private final ActivityScheduleRepository activityScheduleRepository;
     private final ActivityTypeRepository activityTypeRepository;
     private final UserRepository userRepository;
+    private final BookingService bookingService;
 
     public ActivityService(ActivityRepository activityRepository,
                            ActivityScheduleRepository activityScheduleRepository,
                            ActivityTypeRepository activityTypeRepository,
-                           UserRepository userRepository) {
+                           UserRepository userRepository,
+                           BookingService bookingService) {
         this.activityRepository = activityRepository;
         this.activityScheduleRepository = activityScheduleRepository;
         this.activityTypeRepository = activityTypeRepository;
         this.userRepository = userRepository;
+        this.bookingService = bookingService;
     }
 
     // Emprendimientos del prestador, para elegir a cuál pertenece la actividad
@@ -80,10 +84,14 @@ public class ActivityService {
         return ownActivity(currentProvider(email), activityId);
     }
 
+    // Horarios de la actividad con sus lugares libres. El cupo libre no se guarda: lo calcula
+    // BookingService (de Agustina) en el momento, contando confirmadas y pendientes con retención vigente
     @Transactional(readOnly = true)
-    public List<ActivitySchedule> findSchedules(String email, Long activityId) {
+    public List<ProviderScheduleDTO> findSchedules(String email, Long activityId) {
         Activity activity = ownActivity(currentProvider(email), activityId);
-        return activityRepository.findSchedulesOf(activity.getId());
+        return activityRepository.findSchedulesOf(activity.getId()).stream()
+                .map(schedule -> new ProviderScheduleDTO(schedule, bookingService.availableSpots(schedule.getId())))
+                .toList();
     }
 
     @Transactional
