@@ -16,7 +16,7 @@ import java.util.UUID;
 // Es el que se usa si no se configura payment.gateway.
 // El resultado se fuerza con payment.simulated.result (APPROVED por defecto):
 //   APPROVED, PENDING o REJECTED: es lo que devuelve la consulta del pago;
-//   ERROR: simula que el servicio no responde (las dos operaciones fallan)
+//   ERROR: simula que el servicio no responde (todas las operaciones fallan, también el reembolso)
 @Component
 @ConditionalOnProperty(name = "payment.gateway", havingValue = "simulated", matchIfMissing = true)
 public class SimulatedPaymentGateway implements PaymentGateway {
@@ -56,5 +56,17 @@ public class SimulatedPaymentGateway implements PaymentGateway {
             case ERROR -> throw new PaymentGatewayException(
                     "Servicio de pagos simulado no disponible (payment.simulated.result=ERROR)");
         };
+    }
+
+    // Con ERROR el servicio "no responde"; con cualquier otro resultado el reembolso se aprueba
+    @Override
+    public GatewayRefundResult refund(String chargeExternalReference, BigDecimal amount, boolean fullRefund) {
+        if (result == PaymentStatus.ERROR) {
+            throw new PaymentGatewayException("Servicio de pagos simulado no disponible (payment.simulated.result=ERROR)");
+        }
+        String refundId = "SIM-REF-" + UUID.randomUUID();
+        log.info("Reembolso simulado del pago {}: {} UYU ({})", chargeExternalReference, amount,
+                fullRefund ? "total" : "parcial");
+        return new GatewayRefundResult(PaymentStatus.APPROVED, refundId, null);
     }
 }

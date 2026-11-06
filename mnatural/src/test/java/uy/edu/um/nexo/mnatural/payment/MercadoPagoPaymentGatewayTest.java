@@ -26,6 +26,8 @@ import static org.springframework.test.web.client.match.MockRestRequestMatchers.
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withBadRequest;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withServerError;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
+import static org.hamcrest.Matchers.emptyString;
+import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.startsWith;
 
 // Test unitario: MockRestServiceServer hace de Mercado Pago, así no se usa internet ni ninguna credencial real.
@@ -220,5 +222,83 @@ class MercadoPagoPaymentGatewayTest {
 
         assertThat(status.status()).isEqualTo(PaymentStatus.REJECTED);
         assertThat(status.failureReason()).contains("fondos");
+    }
+
+    // ===== refund =====
+
+    @Test
+    void aPartialRefundSendsTheAmountToThePaymentFoundByOurReference() {
+        respondToSearch("[{\"id\":123,\"status\":\"approved\",\"transaction_amount\":3000,"
+                + "\"transaction_amount_refunded\":0,\"currency_id\":\"UYU\"}]");
+        server.expect(requestTo("https://api.mercadopago.com/v1/payments/123/refunds"))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(jsonPath("$.amount").value(1500.0))
+                .andRespond(withSuccess("{\"id\":999,\"payment_id\":123,\"amount\":1500,\"status\":\"approved\"}",
+                        MediaType.APPLICATION_JSON));
+
+        GatewayRefundResult result = gateway.refund("MN-46-abc", new BigDecimal("1500.00"), false);
+
+        assertThat(result.status()).isEqualTo(PaymentStatus.APPROVED);
+        assertThat(result.refundId()).isEqualTo("999");
+        server.verify();
+    }
+
+    @Test
+    void aFullRefundSendsNoAmountSoMercadoPagoReturnsEverything() {
+        respondToSearch("[{\"id\":123,\"status\":\"approved\",\"transaction_amount\":3000}]");
+        server.expect(requestTo("https://api.mercadopago.com/v1/payments/123/refunds"))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(header("Authorization", "Bearer " + FAKE_TOKEN))
+                // Mercado Pago pide una clave por pedido para no procesarlo dos veces
+                .andExpect(header("X-Idempotency-Key", not(emptyString())))
+                .andExpect(jsonPath("$.amount").doesNotExist())
+                .andRespond(withSuccess("{\"id\":1000,\"status\":\"approved\"}", MediaType.APPLICATION_JSON));
+
+        GatewayRefundResult result = gateway.refund("MN-46-abc", new BigDecimal("3000.00"), true);
+
+        assertThat(result.status()).isEqualTo(PaymentStatus.APPROVED);
+        server.verify();
+    }
+
+    @Test
+    void ifThePaymentWasAlreadyRefundedItDoesNotAskForAnotherRefund() {
+        // Un reintento después de que el pedido anterior llegó a Mercado Pago: no se manda otro POST
+        respondToSearch("[{\"id\":123,\"status\":\"approved\",\"transaction_amount\":3000,"
+                + "\"transaction_amount_refunded\":1500}]");
+
+        GatewayRefundResult result = gateway.refund("MN-46-abc", new BigDecimal("1500.00"), false);
+
+        assertThat(result.status()).isEqualTo(PaymentStatus.APPROVED);
+        server.verify();
+    }
+
+    @Test
+    void aRefundWithoutAnApprovedPaymentIsAGatewayError() {
+        respondToSearch("[{\"id\":123,\"status\":\"rejected\"}]");
+
+        assertThatThrownBy(() -> gateway.refund("MN-46-abc", new BigDecimal("1500.00"), false))
+                .isInstanceOf(PaymentGatewayException.class);
+    }
+
+    @Test
+    void ifMercadoPagoFailsRefundingItIsAGatewayErrorWithoutTheToken() {
+        respondToSearch("[{\"id\":123,\"status\":\"approved\",\"transaction_amount\":3000}]");
+        server.expect(requestTo("https://api.mercadopago.com/v1/payments/123/refunds")).andRespond(withServerError());
+
+        assertThatThrownBy(() -> gateway.refund("MN-46-abc", new BigDecimal("3000.00"), true))
+                .isInstanceOf(PaymentGatewayException.class)
+                .hasMessageNotContaining(FAKE_TOKEN);
+    }
+
+    @Test
+    void refundStatusesAreTranslated() {
+        assertThat(MercadoPagoPaymentGateway.toRefundResult(Map.of("status", "approved")).status())
+                .isEqualTo(PaymentStatus.APPROVED);
+        assertThat(MercadoPagoPaymentGateway.toRefundResult(Map.of("status", "in_process")).status())
+                .isEqualTo(PaymentStatus.PENDING);
+        assertThat(MercadoPagoPaymentGateway.toRefundResult(Map.of("status", "rejected")).status())
+                .isEqualTo(PaymentStatus.REJECTED);
+        assertThat(MercadoPagoPaymentGateway.toRefundResult(Map.of("status", "rarísimo")).status())
+                .isEqualTo(PaymentStatus.ERROR);
     }
 }

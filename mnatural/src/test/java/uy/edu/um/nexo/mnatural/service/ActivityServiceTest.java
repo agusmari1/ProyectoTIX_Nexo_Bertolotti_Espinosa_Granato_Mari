@@ -7,7 +7,9 @@ import uy.edu.um.nexo.mnatural.entities.Activity;
 import uy.edu.um.nexo.mnatural.entities.ActivitySchedule;
 import uy.edu.um.nexo.mnatural.entities.ApprovalStatus;
 import uy.edu.um.nexo.mnatural.entities.Provider;
+import uy.edu.um.nexo.mnatural.entities.ScheduleStatus;
 import uy.edu.um.nexo.mnatural.exception.ActivityNotFoundException;
+import uy.edu.um.nexo.mnatural.exception.ActivityValidationException;
 import uy.edu.um.nexo.mnatural.repository.ActivityRepository;
 import uy.edu.um.nexo.mnatural.repository.ActivityScheduleRepository;
 import uy.edu.um.nexo.mnatural.repository.ActivityTypeRepository;
@@ -35,14 +37,16 @@ class ActivityServiceTest {
     private final ActivityRepository activityRepository = mock(ActivityRepository.class);
     private final UserRepository userRepository = mock(UserRepository.class);
     private final BookingService bookingService = mock(BookingService.class);
+    private final ActivityScheduleRepository scheduleRepository = mock(ActivityScheduleRepository.class);
+    private final BookingCancellationService cancellationService = mock(BookingCancellationService.class);
 
     private ActivityService service;
     private Activity activity;
 
     @BeforeEach
     void setUp() {
-        service = new ActivityService(activityRepository, mock(ActivityScheduleRepository.class),
-                mock(ActivityTypeRepository.class), userRepository, bookingService);
+        service = new ActivityService(activityRepository, scheduleRepository,
+                mock(ActivityTypeRepository.class), userRepository, bookingService, cancellationService);
 
         Provider provider = new Provider();
         provider.setId(PROVIDER_ID);
@@ -91,4 +95,37 @@ class ActivityServiceTest {
         verify(bookingService, never()).availableSpots(anyLong());
     }
 
+    // ===== Suspender un horario =====
+
+    @Test
+    void suspendingAScheduleMarksItSuspendedAndCancelsItsBookingsWithFullRefund() {
+        ActivitySchedule schedule = schedule(1L, 10);
+        when(scheduleRepository.findById(1L)).thenReturn(Optional.of(schedule));
+        when(cancellationService.cancelForSuspension(1L)).thenReturn(new SuspensionResult(2, 1, 0));
+
+        SuspensionResult result = service.suspendSchedule(EMAIL, ACTIVITY_ID, 1L);
+
+        assertThat(schedule.getStatus()).isEqualTo(ScheduleStatus.SUSPENDED);
+        assertThat(result.cancelledBookings()).isEqualTo(2);
+        verify(cancellationService).cancelForSuspension(1L);
+    }
+
+    @Test
+    void aScheduleOfAnotherActivityOrAlreadyStartedCannotBeSuspended() {
+        Activity other = new Activity();
+        other.setId(77L);
+        ActivitySchedule foreign = schedule(1L, 10);
+        foreign.setActivity(other);
+        ActivitySchedule started = schedule(2L, 10);
+        started.setStartDateTime(LocalDateTime.now().minusMinutes(5));
+        when(scheduleRepository.findById(1L)).thenReturn(Optional.of(foreign));
+        when(scheduleRepository.findById(2L)).thenReturn(Optional.of(started));
+
+        assertThatThrownBy(() -> service.suspendSchedule(EMAIL, ACTIVITY_ID, 1L))
+                .isInstanceOf(ActivityValidationException.class);
+        assertThatThrownBy(() -> service.suspendSchedule(EMAIL, ACTIVITY_ID, 2L))
+                .isInstanceOf(ActivityValidationException.class);
+        assertThat(started.getStatus()).isEqualTo(ScheduleStatus.SCHEDULED);
+        verify(cancellationService, never()).cancelForSuspension(anyLong());
+    }
 }

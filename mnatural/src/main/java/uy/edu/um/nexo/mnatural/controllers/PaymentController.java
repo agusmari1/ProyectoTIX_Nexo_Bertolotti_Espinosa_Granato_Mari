@@ -21,7 +21,9 @@ import uy.edu.um.nexo.mnatural.entities.User;
 import uy.edu.um.nexo.mnatural.exception.PaymentException;
 import uy.edu.um.nexo.mnatural.payment.PaymentStart;
 import uy.edu.um.nexo.mnatural.repository.UserRepository;
+import uy.edu.um.nexo.mnatural.service.BookingCancellationService;
 import uy.edu.um.nexo.mnatural.service.BookingConfirmationService;
+import uy.edu.um.nexo.mnatural.service.CancellationResult;
 import uy.edu.um.nexo.mnatural.service.BookingQrService;
 import uy.edu.um.nexo.mnatural.service.PaymentService;
 
@@ -30,6 +32,7 @@ import uy.edu.um.nexo.mnatural.service.PaymentService;
 //   GET  /payments/bookings/{id}/qr.png QR de la reserva confirmada
 //   POST /payments/bookings/{id}/start  abre un intento y manda al turista a la página de pago
 //   GET  /payments/return               adonde vuelve el turista después de pagar: consulta el resultado
+//   POST /payments/bookings/{id}/cancel cancela la reserva confirmada según la política de la actividad
 // PaymentService verifica en cada pedido que la reserva sea del turista logueado
 @Controller
 @RequestMapping("/payments")
@@ -40,15 +43,18 @@ public class PaymentController {
 
     private final PaymentService paymentService;
     private final BookingConfirmationService bookingConfirmationService;
+    private final BookingCancellationService bookingCancellationService;
     private final BookingQrService qrService;
     private final UserRepository userRepository;
 
     public PaymentController(PaymentService paymentService,
                              BookingConfirmationService bookingConfirmationService,
+                             BookingCancellationService bookingCancellationService,
                              BookingQrService qrService,
                              UserRepository userRepository) {
         this.paymentService = paymentService;
         this.bookingConfirmationService = bookingConfirmationService;
+        this.bookingCancellationService = bookingCancellationService;
         this.qrService = qrService;
         this.userRepository = userRepository;
     }
@@ -90,6 +96,19 @@ public class PaymentController {
                 return "redirect:" + start.paymentUrl();
             }
             redirectAttributes.addFlashAttribute("errorMessage", start.transaction().getFailureReason());
+        } catch (PaymentException e) {
+            redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
+        }
+        return "redirect:/payments/bookings/" + bookingId;
+    }
+
+    // Si la política no lo permite (no admite cancelación o ya pasó el plazo), se muestra el motivo y no cambia nada
+    @PostMapping("/bookings/{bookingId}/cancel")
+    public String cancelBooking(@PathVariable("bookingId") Long bookingId, Authentication authentication,
+                                RedirectAttributes redirectAttributes) {
+        try {
+            CancellationResult result = bookingCancellationService.cancelByTourist(bookingId, touristId(authentication));
+            redirectAttributes.addFlashAttribute(result.cancelled() ? "successMessage" : "errorMessage", result.message());
         } catch (PaymentException e) {
             redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
         }

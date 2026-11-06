@@ -14,6 +14,7 @@ import uy.edu.um.nexo.mnatural.entities.ActivityType;
 import uy.edu.um.nexo.mnatural.entities.ApprovalStatus;
 import uy.edu.um.nexo.mnatural.entities.Business;
 import uy.edu.um.nexo.mnatural.entities.Provider;
+import uy.edu.um.nexo.mnatural.entities.ScheduleStatus;
 import uy.edu.um.nexo.mnatural.exception.ActivityNotFoundException;
 import uy.edu.um.nexo.mnatural.exception.ActivityValidationException;
 import uy.edu.um.nexo.mnatural.repository.ActivityRepository;
@@ -41,17 +42,20 @@ public class ActivityService {
     private final ActivityTypeRepository activityTypeRepository;
     private final UserRepository userRepository;
     private final BookingService bookingService;
+    private final BookingCancellationService bookingCancellationService;
 
     public ActivityService(ActivityRepository activityRepository,
                            ActivityScheduleRepository activityScheduleRepository,
                            ActivityTypeRepository activityTypeRepository,
                            UserRepository userRepository,
-                           BookingService bookingService) {
+                           BookingService bookingService,
+                           BookingCancellationService bookingCancellationService) {
         this.activityRepository = activityRepository;
         this.activityScheduleRepository = activityScheduleRepository;
         this.activityTypeRepository = activityTypeRepository;
         this.userRepository = userRepository;
         this.bookingService = bookingService;
+        this.bookingCancellationService = bookingCancellationService;
     }
 
     // Emprendimientos del prestador, para elegir a cuál pertenece la actividad
@@ -157,6 +161,22 @@ public class ActivityService {
 
     // El usuario con sesión tiene que ser un prestador aprobado. El login ya no deja entrar
     // a los pendientes ni a los rechazados, pero se controla igual por si cambió de estado
+    // El prestador suspende una fecha y horario: deja de poder reservarse y todas sus reservas se cancelan
+    // con reembolso del 100 % (ESPECIFICACION.md, sección 3). Si el horario ya estaba suspendido, se vuelve a
+    // pasar por sus reservas: sirve para reintentar a mano si quedó alguna sin cancelar
+    @Transactional
+    public SuspensionResult suspendSchedule(String email, Long activityId, Long scheduleId) {
+        Activity activity = ownActivity(currentProvider(email), activityId);
+        ActivitySchedule schedule = activityScheduleRepository.findById(scheduleId)
+                .filter(s -> s.getActivity().getId().equals(activity.getId()))
+                .orElseThrow(() -> new ActivityValidationException(null, "Ese horario no es de esta actividad."));
+        if (schedule.getStatus() == ScheduleStatus.FINISHED || !schedule.getStartDateTime().isAfter(LocalDateTime.now())) {
+            throw new ActivityValidationException(null, "Ese horario ya comenzó o terminó: no se puede suspender.");
+        }
+        schedule.setStatus(ScheduleStatus.SUSPENDED);
+        return bookingCancellationService.cancelForSuspension(schedule.getId());
+    }
+
     private Provider currentProvider(String email) {
         if (userRepository.findByEmail(email).orElse(null) instanceof Provider provider
                 && provider.getApprovalStatus() == ApprovalStatus.APPROVED) {

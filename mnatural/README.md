@@ -83,3 +83,15 @@ Cómo se traduce el estado que informa Mercado Pago:
 |---|---|
 | `MAIL_ENABLED=true` | Envía los mails por SMTP. Por defecto (`false`) no se envía nada: el mensaje solo se escribe en el log. |
 | `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD` | Datos del servidor SMTP. Solo como variables de entorno, nunca en el repo. |
+
+### Cancelación y reembolsos
+
+Cada reembolso es un `PaymentTransaction` de tipo `REFUND` enlazado al cobro original (`originalPayment`). Una reserva nunca se reembolsa dos veces.
+
+- **El turista cancela** (botón "Cancelar reserva" en `/payments/bookings/{id}`, solo para reservas confirmadas). Se aplica la política que definió el prestador en la actividad:
+  - si no admite cancelación, o ya pasó el plazo (`cancellationCutoffHours` antes del inicio), no se cancela y se explica el motivo;
+  - si está dentro del plazo, se devuelve `refundPercentage` % de lo pagado (con 0 % se cancela sin reembolso);
+  - si el servicio de pagos falla, el reembolso queda `ERROR` y **la reserva sigue confirmada**: el turista puede volver a intentar.
+- **El prestador suspende un horario** (botón "Suspender" en `/provider/activities/{id}/schedules`). Se cancelan todas sus reservas, se reembolsa el **100 %** de las pagadas y las pendientes se cancelan sin cobro. Si un reembolso falla, la reserva se cancela igual y `RefundRetryTask` lo reintenta cada 10 minutos hasta que se complete.
+- Con Mercado Pago se usa `POST /v1/payments/{payment_id}/refunds`: sin monto para el total y con `amount` si es parcial. Antes de pedirlo se revisa cuánto ya está reembolsado, así un reintento no devuelve dos veces.
+- Con el servicio simulado, el reembolso se aprueba siempre, salvo con `payment.simulated.result=ERROR`.

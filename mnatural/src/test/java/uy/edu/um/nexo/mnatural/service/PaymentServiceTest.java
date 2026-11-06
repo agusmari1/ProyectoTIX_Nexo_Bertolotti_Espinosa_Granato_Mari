@@ -14,6 +14,7 @@ import uy.edu.um.nexo.mnatural.entities.Tourist;
 import uy.edu.um.nexo.mnatural.exception.PaymentException;
 import uy.edu.um.nexo.mnatural.exception.PaymentGatewayException;
 import uy.edu.um.nexo.mnatural.payment.GatewayPaymentStatus;
+import uy.edu.um.nexo.mnatural.payment.GatewayRefundResult;
 import uy.edu.um.nexo.mnatural.payment.PaymentGateway;
 import uy.edu.um.nexo.mnatural.payment.PaymentStart;
 import uy.edu.um.nexo.mnatural.payment.SimulatedPaymentGateway;
@@ -28,7 +29,10 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -400,5 +404,217 @@ class PaymentServiceTest {
 
         assertThatThrownBy(() -> service(PaymentStatus.APPROVED).getBookingPayment(BOOKING_ID, 99L))
                 .isInstanceOf(PaymentException.class);
+    }
+
+    // ===== Reembolsos =====
+
+    // Para los reembolsos el servicio de pagos es un mock: así se controla qué responde y se verifica qué se le pidió
+    private final PaymentGateway gateway = mock(PaymentGateway.class);
+
+    private PaymentService refundService() {
+        return new PaymentService(repository, gateway);
+    }
+
+    // Reserva confirmada con su cobro de $ 3000 aprobado
+    private PaymentTransaction approvedCharge() {
+        booking.setStatus(BookingStatus.CONFIRMED);
+        booking.setHeldUntil(null);
+        PaymentTransaction charge = new PaymentTransaction();
+        charge.setId(200L);
+        charge.setBooking(booking);
+        charge.setType(PaymentType.CHARGE);
+        charge.setStatus(PaymentStatus.APPROVED);
+        charge.setAmount(new BigDecimal("3000.00"));
+        charge.setAttemptNumber(1);
+        charge.setExternalReference("MN-30-abc");
+        when(repository.findFirstByBookingIdAndTypeAndStatus(BOOKING_ID, PaymentType.CHARGE, PaymentStatus.APPROVED))
+                .thenReturn(Optional.of(charge));
+        return charge;
+    }
+
+    private void cancellationPolicy(boolean allowed, Integer cutoffHours, String refundPercentage) {
+        Activity activity = booking.getActivitySchedule().getActivity();
+        activity.setCancellationAllowed(allowed);
+        activity.setCancellationCutoffHours(cutoffHours);
+        activity.setRefundPercentage(refundPercentage == null ? null : new BigDecimal(refundPercentage));
+    }
+
+    private static BigDecimal amountEq(String expected) {
+        return argThat(amount -> amount != null && amount.compareTo(new BigDecimal(expected)) == 0);
+    }
+
+    @Test
+    void touristCancellingWithinTheDeadlineGetsAPartialRefundLinkedToTheCharge() {
+        PaymentTransaction charge = approvedCharge();
+        // La actividad es en 10 días y admite cancelar hasta 48 horas antes, con 50 %
+        cancellationPolicy(true, 48, "50");
+        when(gateway.refund(anyString(), any(), anyBoolean()))
+                .thenReturn(new GatewayRefundResult(PaymentStatus.APPROVED, "REF-1", null));
+        PaymentService service = refundService();
+
+        BigDecimal percentage = service.touristRefundPercentage(booking, LocalDateTime.now());
+        PaymentTransaction refund = service.refund(booking, percentage);
+
+        assertThat(percentage).isEqualByComparingTo("50");
+        // Parcial: se manda el monto al servicio de pagos
+        verify(gateway).refund(eq("MN-30-abc"), amountEq("1500.00"), eq(false));
+        assertThat(refund.getType()).isEqualTo(PaymentType.REFUND);
+        assertThat(refund.getOriginalPayment()).isSameAs(charge);
+        assertThat(refund.getAmount()).isEqualByComparingTo("1500.00");
+        assertThat(refund.getStatus()).isEqualTo(PaymentStatus.APPROVED);
+        assertThat(refund.getExternalReference()).isEqualTo("REF-1");
+        assertThat(refund.getAttemptNumber()).isEqualTo(1);
+        assertThat(PaymentService.isDone(refund)).isTrue();
+        verify(repository).save(refund);
+    }
+
+    @Test
+    void whenTheProviderSuspendsTheRefundIsOneHundredPercent() {
+        approvedCharge();
+        // Aunque la actividad no admita cancelaciones, la suspensión del prestador devuelve todo
+        cancellationPolicy(false, null, null);
+        when(gateway.refund(anyString(), any(), anyBoolean()))
+                .thenReturn(new GatewayRefundResult(PaymentStatus.APPROVED, "REF-2", null));
+
+        PaymentTransaction refund = refundService().refund(booking, PaymentService.FULL_REFUND_PERCENTAGE);
+
+        verify(gateway).refund(eq("MN-30-abc"), amountEq("3000.00"), eq(true));
+        assertThat(refund.getAmount()).isEqualByComparingTo("3000.00");
+        assertThat(refund.getStatus()).isEqualTo(PaymentStatus.APPROVED);
+    }
+
+    @Test
+    void afterTheCancellationDeadlineThereIsNoRefundAndTheReasonIsExplained() {
+        approvedCharge();
+        cancellationPolicy(true, 48, "50");
+        // Empieza en 24 horas: ya pasó el límite de 48 horas antes
+        booking.getActivitySchedule().setStartDateTime(LocalDateTime.now().plusHours(24));
+
+        assertThatThrownBy(() -> refundService().touristRefundPercentage(booking, LocalDateTime.now()))
+                .isInstanceOf(PaymentException.class)
+                .hasMessageContaining("Ya pasó el plazo para cancelar")
+                .hasMessageContaining("48 horas");
+        verify(gateway, never()).refund(anyString(), any(), anyBoolean());
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void ifTheActivityDoesNotAllowCancellationThereIsNoRefundAndTheReasonIsExplained() {
+        approvedCharge();
+        cancellationPolicy(false, null, null);
+
+        assertThatThrownBy(() -> refundService().touristRefundPercentage(booking, LocalDateTime.now()))
+                .isInstanceOf(PaymentException.class)
+                .hasMessageContaining("no admite cancelaciones");
+        verify(gateway, never()).refund(anyString(), any(), anyBoolean());
+    }
+
+    @Test
+    void aBookingCannotBeRefundedTwice() {
+        approvedCharge();
+        when(repository.existsByBookingIdAndTypeAndStatusIn(eq(BOOKING_ID), eq(PaymentType.REFUND), any()))
+                .thenReturn(true);
+
+        assertThatThrownBy(() -> refundService().refund(booking, PaymentService.FULL_REFUND_PERCENTAGE))
+                .isInstanceOf(PaymentException.class)
+                .hasMessageContaining("ya fue reembolsada");
+        verify(gateway, never()).refund(anyString(), any(), anyBoolean());
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void ifTheGatewayFailsTheRefundIsRecordedAsErrorAndNotAsDone() {
+        approvedCharge();
+        when(gateway.refund(anyString(), any(), anyBoolean())).thenThrow(new PaymentGatewayException("timeout"));
+
+        PaymentTransaction refund = refundService().refund(booking, PaymentService.FULL_REFUND_PERCENTAGE);
+
+        assertThat(refund.getStatus()).isEqualTo(PaymentStatus.ERROR);
+        assertThat(refund.getExternalReference()).isNull();
+        assertThat(refund.getFailureReason()).isNotBlank();
+        assertThat(PaymentService.isDone(refund)).isFalse();
+        // Queda registrado el intento, para reintentarlo
+        verify(repository).save(refund);
+    }
+
+    @Test
+    void aBookingWithoutAnApprovedChargeHasNothingToRefund() {
+        booking.setStatus(BookingStatus.CONFIRMED);
+
+        assertThatThrownBy(() -> refundService().refund(booking, PaymentService.FULL_REFUND_PERCENTAGE))
+                .isInstanceOf(PaymentException.class)
+                .hasMessageContaining("no tiene un pago aprobado");
+        verify(gateway, never()).refund(anyString(), any(), anyBoolean());
+    }
+
+    @Test
+    void theRefundAmountIsRoundedToCents() {
+        assertThat(PaymentService.refundAmount(new BigDecimal("1000.00"), new BigDecimal("33.33")))
+                .isEqualByComparingTo("333.30");
+        assertThat(PaymentService.refundAmount(new BigDecimal("999.99"), new BigDecimal("50")))
+                .isEqualByComparingTo("500.00");
+    }
+
+    @Test
+    void theSimulatedGatewayRefundsUnlessItIsDown() {
+        approvedCharge();
+
+        PaymentTransaction approved = service(PaymentStatus.APPROVED).refund(booking, new BigDecimal("50"));
+        PaymentTransaction failed = service(PaymentStatus.ERROR).refund(booking, new BigDecimal("50"));
+
+        assertThat(approved.getStatus()).isEqualTo(PaymentStatus.APPROVED);
+        assertThat(approved.getExternalReference()).startsWith("SIM-REF-");
+        assertThat(failed.getStatus()).isEqualTo(PaymentStatus.ERROR);
+    }
+
+    @Test
+    void aFailedRefundOfACancelledBookingIsRetriedForTheSameAmount() {
+        approvedCharge();
+        booking.setStatus(BookingStatus.CANCELLED);
+        PaymentTransaction failed = new PaymentTransaction();
+        failed.setType(PaymentType.REFUND);
+        failed.setStatus(PaymentStatus.ERROR);
+        failed.setAmount(new BigDecimal("3000.00"));
+        failed.setAttemptNumber(1);
+        when(repository.findBookingIdsWithFailedRefunds()).thenReturn(List.of(BOOKING_ID));
+        when(repository.findFirstByBookingIdAndTypeOrderByAttemptNumberDesc(BOOKING_ID, PaymentType.REFUND))
+                .thenReturn(Optional.of(failed));
+        when(repository.countByBookingIdAndType(BOOKING_ID, PaymentType.REFUND)).thenReturn(1L);
+        when(gateway.refund(anyString(), any(), anyBoolean()))
+                .thenReturn(new GatewayRefundResult(PaymentStatus.APPROVED, "REF-3", null));
+
+        int done = refundService().retryFailedRefunds();
+
+        assertThat(done).isEqualTo(1);
+        verify(gateway).refund(eq("MN-30-abc"), amountEq("3000.00"), eq(true));
+    }
+
+    @Test
+    void theBookingScreenExplainsWhenTheBookingCannotBeCancelled() {
+        PaymentTransaction charge = approvedCharge();
+        cancellationPolicy(false, null, null);
+        when(repository.findBookingById(BOOKING_ID)).thenReturn(Optional.of(booking));
+        when(repository.findByBookingIdAndTypeOrderByAttemptNumberAsc(BOOKING_ID, PaymentType.CHARGE))
+                .thenReturn(List.of(charge));
+
+        BookingPaymentDTO payment = refundService().getBookingPayment(BOOKING_ID, TOURIST_ID);
+
+        assertThat(payment.isCancellable()).isTrue();
+        assertThat(payment.getCancellationBlockedReason()).contains("no admite cancelaciones");
+        assertThat(payment.getRefundIfCancelled()).isNull();
+    }
+
+    @Test
+    void theBookingScreenShowsHowMuchWouldBeRefunded() {
+        PaymentTransaction charge = approvedCharge();
+        cancellationPolicy(true, 48, "50");
+        when(repository.findBookingById(BOOKING_ID)).thenReturn(Optional.of(booking));
+        when(repository.findByBookingIdAndTypeOrderByAttemptNumberAsc(BOOKING_ID, PaymentType.CHARGE))
+                .thenReturn(List.of(charge));
+
+        BookingPaymentDTO payment = refundService().getBookingPayment(BOOKING_ID, TOURIST_ID);
+
+        assertThat(payment.getCancellationBlockedReason()).isNull();
+        assertThat(payment.getRefundIfCancelled()).isEqualByComparingTo("1500.00");
     }
 }

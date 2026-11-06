@@ -70,6 +70,7 @@
                     <th>Capacidad</th>
                     <th>Lugares libres</th>
                     <th>Estado</th>
+                    <th></th>
                 </tr>
                 </thead>
                 <tbody>
@@ -83,6 +84,15 @@
                     </td>
                     <td th:text="${item.schedule.status.name() == 'SCHEDULED'} ? 'Programado'
                                  : (${item.schedule.status.name() == 'SUSPENDED'} ? 'Suspendido' : 'Finalizado')"></td>
+                    <td class="text-end">
+                        <!-- Cancela todas las reservas del horario y reembolsa el 100 % -->
+                        <form th:if="${item.schedule.status.name() == 'SCHEDULED'}"
+                              th:action="@{/provider/activities/{id}/schedules/{scheduleId}/suspend(id=${activity.id}, scheduleId=${item.schedule.id})}"
+                              method="post"
+                              onsubmit="return confirm('¿Suspender este horario? Se cancelan todas sus reservas y se reembolsa el 100 % de lo pagado.');">
+                            <button type="submit" class="btn btn-outline-danger btn-sm">Suspender</button>
+                        </form>
+                    </td>
                 </tr>
                 </tbody>
             </table>

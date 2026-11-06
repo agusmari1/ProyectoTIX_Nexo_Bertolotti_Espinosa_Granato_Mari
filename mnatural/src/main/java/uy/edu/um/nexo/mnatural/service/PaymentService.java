@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import uy.edu.um.nexo.mnatural.dto.BookingPaymentDTO;
+import uy.edu.um.nexo.mnatural.entities.Activity;
 import uy.edu.um.nexo.mnatural.entities.ActivitySchedule;
 import uy.edu.um.nexo.mnatural.entities.Booking;
 import uy.edu.um.nexo.mnatural.entities.BookingStatus;
@@ -13,21 +14,26 @@ import uy.edu.um.nexo.mnatural.entities.PaymentTransaction;
 import uy.edu.um.nexo.mnatural.entities.PaymentType;
 import uy.edu.um.nexo.mnatural.exception.PaymentException;
 import uy.edu.um.nexo.mnatural.payment.GatewayPaymentStatus;
+import uy.edu.um.nexo.mnatural.payment.GatewayRefundResult;
 import uy.edu.um.nexo.mnatural.payment.PaymentCreation;
 import uy.edu.um.nexo.mnatural.payment.PaymentGateway;
 import uy.edu.um.nexo.mnatural.payment.PaymentStart;
 import uy.edu.um.nexo.mnatural.repository.PaymentTransactionRepository;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 // El pago es en dos pasos:
 //   1. startPayment: registra el intento en PENDING y devuelve la URL donde paga el turista;
 //   2. syncPayment: cuando el turista vuelve, consulta el resultado y actualiza el intento.
+// También hace los reembolsos (refund): calcula cuánto se devuelve y lo pide al servicio de pagos.
 // Este servicio nunca confirma ni cancela reservas: confirmar lo hace BookingConfirmationService
-// (solo con un pago APPROVED) y vencer las que no se pagaron lo hace BookingExpirationTask
+// (solo con un pago APPROVED), cancelar BookingCancellationService y vencer las que no se pagaron
+// BookingExpirationTask
 @Service
 public class PaymentService {
 
@@ -38,6 +44,12 @@ public class PaymentService {
 
     // Todos los pagos son en pesos uruguayos (ESPECIFICACION.md, sección 3)
     public static final String CURRENCY = "UYU";
+
+    // Lo que se devuelve cuando el prestador suspende la actividad o el horario (ESPECIFICACION.md, sección 3)
+    public static final BigDecimal FULL_REFUND_PERCENTAGE = new BigDecimal("100");
+
+    // Un reembolso en estos estados ya está hecho (o el servicio lo está procesando): no se pide otro
+    private static final List<PaymentStatus> REFUND_DONE = List.of(PaymentStatus.APPROVED, PaymentStatus.PENDING);
 
     private final PaymentTransactionRepository paymentTransactionRepository;
     private final PaymentGateway paymentGateway;
@@ -145,8 +157,145 @@ public class PaymentService {
         List<PaymentTransaction> attempts = paymentTransactionRepository
                 .findByBookingIdAndTypeOrderByAttemptNumberAsc(bookingId, PaymentType.CHARGE);
         boolean alreadyPaid = attempts.stream().anyMatch(t -> t.getStatus() == PaymentStatus.APPROVED);
-        boolean payable = !alreadyPaid && isPayable(booking, LocalDateTime.now());
-        return new BookingPaymentDTO(booking, attempts, payable);
+        LocalDateTime now = LocalDateTime.now();
+        boolean payable = !alreadyPaid && isPayable(booking, now);
+        List<PaymentTransaction> refunds = paymentTransactionRepository
+                .findByBookingIdAndTypeOrderByAttemptNumberAsc(bookingId, PaymentType.REFUND);
+
+        // Solo una reserva confirmada (pagada) se cancela desde acá; las pendientes vencen solas
+        boolean cancellable = booking.getStatus() == BookingStatus.CONFIRMED && !isRefunded(bookingId);
+        String blockedReason = null;
+        BigDecimal refundIfCancelled = null;
+        if (cancellable) {
+            try {
+                BigDecimal percentage = touristRefundPercentage(booking, now);
+                BigDecimal charged = attempts.stream().filter(t -> t.getStatus() == PaymentStatus.APPROVED)
+                        .map(PaymentTransaction::getAmount).findFirst().orElse(BigDecimal.ZERO);
+                refundIfCancelled = refundAmount(charged, percentage);
+            } catch (PaymentException e) {
+                blockedReason = e.getMessage();
+            }
+        }
+        return new BookingPaymentDTO(booking, attempts, payable, refunds, cancellable, blockedReason, refundIfCancelled);
+    }
+
+    // ===== Reembolsos =====
+
+    // Política de cancelación que definió el prestador para la actividad (ESPECIFICACION.md, sección 3).
+    // Devuelve el porcentaje que le corresponde al turista si cancela en este momento (puede ser 0).
+    // Si la actividad no admite cancelación o ya pasó el plazo, tira PaymentException explicando por qué
+    public BigDecimal touristRefundPercentage(Booking booking, LocalDateTime now) {
+        ActivitySchedule schedule = booking.getActivitySchedule();
+        Activity activity = schedule.getActivity();
+        if (!activity.isCancellationAllowed()) {
+            throw new PaymentException("Esta actividad no admite cancelaciones: el prestador definió que las "
+                    + "reservas no se cancelan ni se reembolsan.");
+        }
+        int cutoffHours = activity.getCancellationCutoffHours() == null ? 0 : activity.getCancellationCutoffHours();
+        LocalDateTime deadline = schedule.getStartDateTime().minusHours(cutoffHours);
+        if (!now.isBefore(deadline)) {
+            throw new PaymentException(cutoffHours == 0
+                    ? "La actividad ya comenzó: la reserva ya no se puede cancelar ni reembolsar."
+                    : "Ya pasó el plazo para cancelar: esta actividad admite cancelaciones hasta " + cutoffHours
+                    + " horas antes del inicio. La reserva ya no se puede cancelar ni reembolsar.");
+        }
+        return activity.getRefundPercentage() == null ? BigDecimal.ZERO : activity.getRefundPercentage();
+    }
+
+    // Monto a devolver en pesos, redondeado a centésimos. Ejemplo: 50 % de 3000,00 es 1500,00
+    public static BigDecimal refundAmount(BigDecimal charged, BigDecimal percentage) {
+        return charged.multiply(percentage).divide(FULL_REFUND_PERCENTAGE, 2, RoundingMode.HALF_UP);
+    }
+
+    // Devuelve ese porcentaje del cobro aprobado de la reserva: crea un PaymentTransaction REFUND enlazado
+    // al cobro (originalPayment) y se lo pide al servicio de pagos.
+    // Si el servicio falla, el reembolso queda en ERROR (no se da por hecho) y se devuelve sin tirar excepción,
+    // así queda registrado el intento. Quien llama decide qué hacer con la reserva según isDone
+    @Transactional
+    public PaymentTransaction refund(Booking booking, BigDecimal percentage) {
+        if (percentage == null || percentage.signum() <= 0 || percentage.compareTo(FULL_REFUND_PERCENTAGE) > 0) {
+            throw new PaymentException("El porcentaje a reembolsar tiene que ser mayor a 0 y como máximo 100.");
+        }
+        PaymentTransaction charge = approvedCharge(booking.getId())
+                .orElseThrow(() -> new PaymentException("Esta reserva no tiene un pago aprobado para reembolsar."));
+        if (isRefunded(booking.getId())) {
+            throw new PaymentException("Esta reserva ya fue reembolsada.");
+        }
+        return requestRefund(booking, charge, refundAmount(charge.getAmount(), percentage),
+                percentage.compareTo(FULL_REFUND_PERCENTAGE) == 0);
+    }
+
+    // Reintenta los reembolsos que fallaron en reservas ya canceladas (por ejemplo, el prestador suspendió
+    // el horario mientras el servicio de pagos no respondía). Se pide el mismo monto que el intento anterior.
+    // Devuelve cuántos se completaron. Lo llama RefundRetryTask
+    @Transactional
+    public int retryFailedRefunds() {
+        int done = 0;
+        for (Long bookingId : paymentTransactionRepository.findBookingIdsWithFailedRefunds()) {
+            // Se bloquea la reserva y se vuelve a verificar, por si otro pedido lo reintentó al mismo tiempo
+            Booking booking = paymentTransactionRepository.findBookingForUpdate(bookingId).orElse(null);
+            Optional<PaymentTransaction> charge = approvedCharge(bookingId);
+            Optional<PaymentTransaction> last = paymentTransactionRepository
+                    .findFirstByBookingIdAndTypeOrderByAttemptNumberDesc(bookingId, PaymentType.REFUND);
+            if (booking == null || charge.isEmpty() || last.isEmpty() || isRefunded(bookingId)) {
+                continue;
+            }
+            BigDecimal amount = last.get().getAmount();
+            boolean fullRefund = amount.compareTo(charge.get().getAmount()) == 0;
+            if (isDone(requestRefund(booking, charge.get(), amount, fullRefund))) {
+                done++;
+            }
+        }
+        return done;
+    }
+
+    public boolean hasApprovedCharge(Long bookingId) {
+        return paymentTransactionRepository.existsByBookingIdAndTypeAndStatus(
+                bookingId, PaymentType.CHARGE, PaymentStatus.APPROVED);
+    }
+
+    // true si la reserva ya tiene un reembolso aprobado o en proceso
+    public boolean isRefunded(Long bookingId) {
+        return paymentTransactionRepository.existsByBookingIdAndTypeAndStatusIn(
+                bookingId, PaymentType.REFUND, REFUND_DONE);
+    }
+
+    // Un reembolso aprobado o en proceso cuenta como hecho; REJECTED o ERROR no
+    public static boolean isDone(PaymentTransaction refund) {
+        return refund != null && REFUND_DONE.contains(refund.getStatus());
+    }
+
+    private Optional<PaymentTransaction> approvedCharge(Long bookingId) {
+        return paymentTransactionRepository.findFirstByBookingIdAndTypeAndStatus(
+                bookingId, PaymentType.CHARGE, PaymentStatus.APPROVED);
+    }
+
+    private PaymentTransaction requestRefund(Booking booking, PaymentTransaction charge, BigDecimal amount,
+                                             boolean fullRefund) {
+        PaymentTransaction refund = new PaymentTransaction();
+        refund.setBooking(booking);
+        refund.setType(PaymentType.REFUND);
+        refund.setOriginalPayment(charge);
+        refund.setAmount(amount);
+        refund.setStatus(PaymentStatus.PENDING);
+        refund.setAttemptNumber((int) paymentTransactionRepository
+                .countByBookingIdAndType(booking.getId(), PaymentType.REFUND) + 1);
+        try {
+            GatewayRefundResult result = paymentGateway.refund(charge.getExternalReference(), amount, fullRefund);
+            refund.setStatus(result.status());
+            refund.setExternalReference(result.refundId());
+            refund.setFailureReason(result.failureReason());
+        } catch (RuntimeException e) {
+            // No se sabe si el servicio llegó a devolver el dinero: queda ERROR y el reintento lo verifica
+            // (Mercado Pago no devuelve de nuevo lo que ya figura reembolsado)
+            log.warn("No se pudo reembolsar el pago {} de la reserva {} (intento {}): {}",
+                    charge.getExternalReference(), booking.getId(), refund.getAttemptNumber(), e.getMessage());
+            refund.setStatus(PaymentStatus.ERROR);
+            refund.setFailureReason("No se pudo conectar con el servicio de pagos para hacer el reembolso.");
+        }
+        log.info("Reembolso de la reserva {}: {} {} ({}), estado {}", booking.getId(), amount, CURRENCY,
+                fullRefund ? "total" : "parcial", refund.getStatus());
+        return paymentTransactionRepository.save(refund);
     }
 
     private PaymentTransaction sync(PaymentTransaction transaction, Long touristId) {
