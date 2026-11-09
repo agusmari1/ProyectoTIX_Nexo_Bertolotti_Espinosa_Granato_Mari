@@ -91,7 +91,7 @@ class ActivityManagementServiceTest {
         dto.setEquipment("Botas");
         dto.setBookingCutoffMinutes(60);
         dto.setCancellationAllowed(true);
-        dto.setCancellationCutoffHours(24);
+        dto.setCancellationCutoffMinutes(1440);
         dto.setRefundPercentage(new BigDecimal("50"));
         dto.setActivityTypeIds(Set.of(1L));
         return dto;
@@ -119,7 +119,7 @@ class ActivityManagementServiceTest {
         assertThat(updated.getRequirements()).isNull();
         assertThat(updated.getEquipment()).isEqualTo("Botas");
         assertThat(updated.getBookingCutoffMinutes()).isEqualTo(60);
-        assertThat(updated.getCancellationCutoffHours()).isEqualTo(24);
+        assertThat(updated.getCancellationCutoffMinutes()).isEqualTo(1440);
         assertThat(updated.getRefundPercentage()).isEqualByComparingTo("50");
         assertThat(updated.getActivityTypes()).containsExactly(hiking);
         // Nombre y lugar no se pueden editar
@@ -131,7 +131,7 @@ class ActivityManagementServiceTest {
     @Test
     void updateClearsTheCancellationPolicyWhenCancellationsAreNoLongerAllowed() {
         activity.setCancellationAllowed(true);
-        activity.setCancellationCutoffHours(24);
+        activity.setCancellationCutoffMinutes(1440);
         activity.setRefundPercentage(new BigDecimal("50"));
         ActivityDTO dto = validDto();
         dto.setCancellationAllowed(false);
@@ -139,7 +139,7 @@ class ActivityManagementServiceTest {
         Activity updated = service.update(EMAIL, ACTIVITY_ID, dto);
 
         assertThat(updated.isCancellationAllowed()).isFalse();
-        assertThat(updated.getCancellationCutoffHours()).isNull();
+        assertThat(updated.getCancellationCutoffMinutes()).isNull();
         assertThat(updated.getRefundPercentage()).isNull();
     }
 

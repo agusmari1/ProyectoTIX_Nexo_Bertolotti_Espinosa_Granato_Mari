@@ -432,10 +432,10 @@ class PaymentServiceTest {
         return charge;
     }
 
-    private void cancellationPolicy(boolean allowed, Integer cutoffHours, String refundPercentage) {
+    private void cancellationPolicy(boolean allowed, Integer cutoffMinutes, String refundPercentage) {
         Activity activity = booking.getActivitySchedule().getActivity();
         activity.setCancellationAllowed(allowed);
-        activity.setCancellationCutoffHours(cutoffHours);
+        activity.setCancellationCutoffMinutes(cutoffMinutes);
         activity.setRefundPercentage(refundPercentage == null ? null : new BigDecimal(refundPercentage));
     }
 
@@ -446,8 +446,8 @@ class PaymentServiceTest {
     @Test
     void touristCancellingWithinTheDeadlineGetsAPartialRefundLinkedToTheCharge() {
         PaymentTransaction charge = approvedCharge();
-        // La actividad es en 10 días y admite cancelar hasta 48 horas antes, con 50 %
-        cancellationPolicy(true, 48, "50");
+        // La actividad es en 10 días y admite cancelar hasta 2880 minutos (48 horas) antes, con 50 %
+        cancellationPolicy(true, 2880, "50");
         when(gateway.refund(anyString(), any(), anyBoolean()))
                 .thenReturn(new GatewayRefundResult(PaymentStatus.APPROVED, "REF-1", null));
         PaymentService service = refundService();
@@ -486,14 +486,14 @@ class PaymentServiceTest {
     @Test
     void afterTheCancellationDeadlineThereIsNoRefundAndTheReasonIsExplained() {
         approvedCharge();
-        cancellationPolicy(true, 48, "50");
-        // Empieza en 24 horas: ya pasó el límite de 48 horas antes
+        cancellationPolicy(true, 2880, "50");
+        // Empieza en 24 horas: ya pasó el límite de 2880 minutos antes
         booking.getActivitySchedule().setStartDateTime(LocalDateTime.now().plusHours(24));
 
         assertThatThrownBy(() -> refundService().touristRefundPercentage(booking, LocalDateTime.now()))
                 .isInstanceOf(PaymentException.class)
                 .hasMessageContaining("Ya pasó el plazo para cancelar")
-                .hasMessageContaining("48 horas");
+                .hasMessageContaining("2880 minutos");
         verify(gateway, never()).refund(anyString(), any(), anyBoolean());
         verify(repository, never()).save(any());
     }
@@ -607,7 +607,7 @@ class PaymentServiceTest {
     @Test
     void theBookingScreenShowsHowMuchWouldBeRefunded() {
         PaymentTransaction charge = approvedCharge();
-        cancellationPolicy(true, 48, "50");
+        cancellationPolicy(true, 2880, "50");
         when(repository.findBookingById(BOOKING_ID)).thenReturn(Optional.of(booking));
         when(repository.findByBookingIdAndTypeOrderByAttemptNumberAsc(BOOKING_ID, PaymentType.CHARGE))
                 .thenReturn(List.of(charge));
