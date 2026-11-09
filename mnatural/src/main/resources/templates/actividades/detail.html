@@ -40,6 +40,7 @@
 
         <!-- Información de la actividad -->
         <div class="col-lg-7">
+            <img th:if="${activityPhotos?.urlFor(activity.department) != null}" th:src="@{${activityPhotos?.urlFor(activity.department)}}" th:alt="${activity.name}" class="w-100 rounded mb-4" style="max-height: 340px; object-fit: cover;">
             <div class="card mb-4">
                 <div class="card-header">Sobre la actividad</div>
                 <div class="card-body">

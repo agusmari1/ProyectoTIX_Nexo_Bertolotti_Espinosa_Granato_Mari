@@ -96,6 +96,7 @@
     <div class="row g-3">
         <div class="col-md-6 col-lg-4" th:each="activity : ${activities}">
             <div class="card item-card h-100">
+                <img th:if="${activityPhotos?.urlFor(activity.department) != null}" th:src="@{${activityPhotos?.urlFor(activity.department)}}" th:alt="${activity.name}" class="card-img-top" style="height: 180px; object-fit: cover;">
                 <div class="card-header">
                     <span th:text="${activity.name}"></span>
                 </div>
