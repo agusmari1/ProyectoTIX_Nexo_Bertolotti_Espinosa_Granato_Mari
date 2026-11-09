@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
+import uy.edu.um.nexo.mnatural.service.BookingCancelledEvent;
 import uy.edu.um.nexo.mnatural.service.BookingConfirmedEvent;
 
 // Implementación por defecto (sin SMTP configurado): no envía nada, escribe el mail en el log.
@@ -20,5 +21,11 @@ public class LoggingBookingMailer implements BookingMailer {
                         + "  Para: {}\n  Asunto: {}\n  Adjunto: {} ({} bytes)\n  Cuerpo:\n{}",
                 booking.touristEmail(), subject(booking), attachmentName(booking),
                 qrPng == null ? 0 : qrPng.length, body(booking));
+    }
+
+    @Override
+    public void sendBookingCancellation(BookingCancelledEvent booking) {
+        log.info("Correo deshabilitado (app.mail.enabled=false), no se envía. Mensaje:\n"
+                + "  Para: {}\n  Asunto: {}\n  Cuerpo:\n{}", booking.touristEmail(), subject(booking), body(booking));
     }
 }

@@ -2,6 +2,8 @@ package uy.edu.um.nexo.mnatural.service;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.springframework.context.ApplicationEventPublisher;
 import uy.edu.um.nexo.mnatural.entities.Activity;
 import uy.edu.um.nexo.mnatural.entities.ActivitySchedule;
 import uy.edu.um.nexo.mnatural.entities.Booking;
@@ -44,8 +46,9 @@ class BookingCancellationServiceTest {
 
     private final PaymentTransactionRepository repository = mock(PaymentTransactionRepository.class);
     private final PaymentGateway gateway = mock(PaymentGateway.class);
+    private final ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
     private final BookingCancellationService service =
-            new BookingCancellationService(repository, new PaymentService(repository, gateway));
+            new BookingCancellationService(repository, new PaymentService(repository, gateway), eventPublisher);
 
     private Activity activity;
     private ActivitySchedule schedule;
@@ -56,6 +59,7 @@ class BookingCancellationServiceTest {
         when(repository.save(any(PaymentTransaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         activity = new Activity();
+        activity.setName("Kayak");
         activity.setCancellationAllowed(true);
         activity.setCancellationCutoffHours(48);
         activity.setRefundPercentage(new BigDecimal("50"));
@@ -73,6 +77,8 @@ class BookingCancellationServiceTest {
     private Booking confirmedBooking(Long id, String chargeReference) {
         Tourist tourist = new Tourist();
         tourist.setId(TOURIST_ID);
+        tourist.setName("Ana");
+        tourist.setEmail("ana@ejemplo.test");
         Booking confirmed = new Booking();
         confirmed.setId(id);
         confirmed.setTourist(tourist);
@@ -111,6 +117,14 @@ class BookingCancellationServiceTest {
         assertThat(result.refund().getAmount()).isEqualByComparingTo("1500.00");
         assertThat(result.message()).contains("1.500,00").contains("50 %");
         verify(gateway).refund(eq("MN-30-abc"), argThat(a -> a.compareTo(new BigDecimal("1500")) == 0), eq(false));
+
+        // Aviso por mail (lo manda BookingCancellationNotifier después del commit)
+        BookingCancelledEvent event = publishedEvents().getFirst();
+        assertThat(event.reason()).isEqualTo(BookingCancelledEvent.Reason.TOURIST_CANCELLED);
+        assertThat(event.touristEmail()).isEqualTo("ana@ejemplo.test");
+        assertThat(event.activityName()).isEqualTo("Kayak");
+        assertThat(event.refundAmount()).isEqualByComparingTo("1500.00");
+        assertThat(event.refundCompleted()).isTrue();
     }
 
     @Test
@@ -123,6 +137,8 @@ class BookingCancellationServiceTest {
         assertThat(result.refund().getStatus()).isEqualTo(PaymentStatus.ERROR);
         assertThat(result.message()).contains("sigue confirmada");
         assertThat(booking.getStatus()).isEqualTo(BookingStatus.CONFIRMED);
+        // No se canceló: no se avisa nada
+        verify(eventPublisher, never()).publishEvent(any(Object.class));
     }
 
     @Test
@@ -157,6 +173,7 @@ class BookingCancellationServiceTest {
         assertThat(result.refund()).isNull();
         assertThat(result.message()).contains("no corresponde reembolso");
         assertThat(booking.getStatus()).isEqualTo(BookingStatus.CANCELLED);
+        assertThat(publishedEvents().getFirst().refundAmount()).isNull();
         verify(gateway, never()).refund(anyString(), any(), anyBoolean());
     }
 
@@ -189,6 +206,8 @@ class BookingCancellationServiceTest {
         activity.setCancellationAllowed(false);
         Booking unpaid = new Booking();
         unpaid.setId(31L);
+        unpaid.setTourist(booking.getTourist());
+        unpaid.setActivitySchedule(schedule);
         unpaid.setStatus(BookingStatus.PENDING);
         unpaid.setHeldUntil(LocalDateTime.now().plusMinutes(5));
         when(repository.findBookingsOfScheduleForUpdate(eq(SCHEDULE_ID), any())).thenReturn(List.of(booking, unpaid));
@@ -205,6 +224,13 @@ class BookingCancellationServiceTest {
         assertThat(unpaid.getHeldUntil()).isNull();
         verify(gateway, times(1)).refund(eq("MN-30-abc"),
                 argThat(a -> a.compareTo(new BigDecimal("3000")) == 0), eq(true));
+
+        // Un aviso por reserva: la pagada con el 100 % devuelto, la pendiente sin reembolso
+        List<BookingCancelledEvent> events = publishedEvents();
+        assertThat(events).extracting(BookingCancelledEvent::reason)
+                .containsOnly(BookingCancelledEvent.Reason.SCHEDULE_SUSPENDED);
+        assertThat(events.get(0).refundAmount()).isEqualByComparingTo("3000.00");
+        assertThat(events.get(1).refundAmount()).isNull();
     }
 
     @Test
@@ -217,5 +243,15 @@ class BookingCancellationServiceTest {
         assertThat(result.refunded()).isZero();
         assertThat(result.failedRefunds()).isEqualTo(1);
         assertThat(booking.getStatus()).isEqualTo(BookingStatus.CANCELLED);
+        // El mail dice que el reembolso está en proceso (se reintenta solo)
+        BookingCancelledEvent event = publishedEvents().getFirst();
+        assertThat(event.refundAmount()).isEqualByComparingTo("3000.00");
+        assertThat(event.refundCompleted()).isFalse();
+    }
+
+    private List<BookingCancelledEvent> publishedEvents() {
+        ArgumentCaptor<BookingCancelledEvent> captor = ArgumentCaptor.forClass(BookingCancelledEvent.class);
+        verify(eventPublisher, org.mockito.Mockito.atLeastOnce()).publishEvent(captor.capture());
+        return captor.getAllValues();
     }
 }

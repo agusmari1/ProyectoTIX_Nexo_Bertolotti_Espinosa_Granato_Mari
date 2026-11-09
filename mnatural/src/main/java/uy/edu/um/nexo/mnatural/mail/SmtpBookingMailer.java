@@ -10,6 +10,7 @@ import org.springframework.core.io.ByteArrayResource;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Component;
+import uy.edu.um.nexo.mnatural.service.BookingCancelledEvent;
 import uy.edu.um.nexo.mnatural.service.BookingConfirmedEvent;
 
 import java.nio.charset.StandardCharsets;
@@ -48,6 +49,25 @@ public class SmtpBookingMailer implements BookingMailer {
             log.info("Correo de reserva confirmada enviado a {} (reserva {})", booking.touristEmail(), booking.bookingId());
         } catch (MessagingException | RuntimeException e) {
             log.error("No se pudo enviar el correo de la reserva {} a {}: {}",
+                    booking.bookingId(), booking.touristEmail(), e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public void sendBookingCancellation(BookingCancelledEvent booking) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, false, StandardCharsets.UTF_8.name());
+            if (!from.isBlank()) {
+                helper.setFrom(from);
+            }
+            helper.setTo(booking.touristEmail());
+            helper.setSubject(subject(booking));
+            helper.setText(body(booking));
+            mailSender.send(message);
+            log.info("Correo de reserva cancelada enviado a {} (reserva {})", booking.touristEmail(), booking.bookingId());
+        } catch (MessagingException | RuntimeException e) {
+            log.error("No se pudo enviar el correo de cancelación de la reserva {} a {}: {}",
                     booking.bookingId(), booking.touristEmail(), e.getMessage(), e);
         }
     }

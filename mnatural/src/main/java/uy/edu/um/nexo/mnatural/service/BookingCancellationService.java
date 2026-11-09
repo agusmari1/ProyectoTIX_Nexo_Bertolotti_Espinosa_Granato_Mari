@@ -2,10 +2,13 @@ package uy.edu.um.nexo.mnatural.service;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import uy.edu.um.nexo.mnatural.entities.ActivitySchedule;
 import uy.edu.um.nexo.mnatural.entities.Booking;
 import uy.edu.um.nexo.mnatural.entities.BookingStatus;
+import uy.edu.um.nexo.mnatural.entities.PaymentStatus;
 import uy.edu.um.nexo.mnatural.entities.PaymentTransaction;
 import uy.edu.um.nexo.mnatural.exception.PaymentException;
 import uy.edu.um.nexo.mnatural.repository.PaymentTransactionRepository;
@@ -31,11 +34,14 @@ public class BookingCancellationService {
 
     private final PaymentTransactionRepository paymentTransactionRepository;
     private final PaymentService paymentService;
+    private final ApplicationEventPublisher eventPublisher;
 
     public BookingCancellationService(PaymentTransactionRepository paymentTransactionRepository,
-                                      PaymentService paymentService) {
+                                      PaymentService paymentService,
+                                      ApplicationEventPublisher eventPublisher) {
         this.paymentTransactionRepository = paymentTransactionRepository;
         this.paymentService = paymentService;
+        this.eventPublisher = eventPublisher;
     }
 
     // El turista cancela su reserva confirmada.
@@ -71,7 +77,7 @@ public class BookingCancellationService {
             }
         }
 
-        cancel(booking);
+        cancel(booking, BookingCancelledEvent.Reason.TOURIST_CANCELLED, refund);
         log.info("Reserva {} cancelada por el turista ({} % de reembolso)", bookingId, percentage);
         String message = refund == null
                 ? "Cancelaste tu reserva. Según la política de la actividad, no corresponde reembolso."
@@ -90,24 +96,32 @@ public class BookingCancellationService {
         int refunded = 0;
         int failed = 0;
         for (Booking booking : bookings) {
+            PaymentTransaction refund = null;
             // Las pendientes normalmente no tienen cobro; si alguna ya se cobró, también se devuelve
             if (paymentService.hasApprovedCharge(booking.getId()) && !paymentService.isRefunded(booking.getId())) {
-                PaymentTransaction refund = paymentService.refund(booking, PaymentService.FULL_REFUND_PERCENTAGE);
+                refund = paymentService.refund(booking, PaymentService.FULL_REFUND_PERCENTAGE);
                 if (PaymentService.isDone(refund)) {
                     refunded++;
                 } else {
                     failed++;
                 }
             }
-            cancel(booking);
+            cancel(booking, BookingCancelledEvent.Reason.SCHEDULE_SUSPENDED, refund);
         }
         log.info("Horario {} suspendido: {} reservas canceladas, {} reembolsadas, {} reembolsos para reintentar",
                 scheduleId, bookings.size(), refunded, failed);
         return new SuspensionResult(bookings.size(), refunded, failed);
     }
 
-    private void cancel(Booking booking) {
+    // refund: el reembolso pedido (null si no correspondía). El mail al turista lo manda
+    // BookingCancellationNotifier recién cuando esta transacción se guarda
+    private void cancel(Booking booking, BookingCancelledEvent.Reason reason, PaymentTransaction refund) {
         booking.setStatus(BookingStatus.CANCELLED);
         booking.setHeldUntil(null);
+        ActivitySchedule schedule = booking.getActivitySchedule();
+        eventPublisher.publishEvent(new BookingCancelledEvent(booking.getId(), booking.getTourist().getEmail(),
+                booking.getTourist().getName(), booking.getBookingCode(), schedule.getActivity().getName(),
+                schedule.getStartDateTime(), reason, refund == null ? null : refund.getAmount(),
+                refund != null && refund.getStatus() == PaymentStatus.APPROVED));
     }
 }
