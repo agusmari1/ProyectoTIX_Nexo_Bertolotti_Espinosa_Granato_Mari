@@ -31,3 +31,6 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Fotos subidas por los prestadores ###
+uploads/

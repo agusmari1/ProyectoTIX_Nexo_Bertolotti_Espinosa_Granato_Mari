@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450" role="img" aria-label="Actividad sin foto">
+    <rect width="800" height="450" fill="#ede4d2"/>
+    <circle cx="610" cy="130" r="48" fill="#f4e0d4"/>
+    <path d="M0 320 C150 230 280 250 410 310 S660 360 800 270 V450 H0 Z" fill="#e2e7d2"/>
+    <path d="M0 380 C170 320 320 340 470 385 S700 410 800 360 V450 H0 Z" fill="#3f5b2c" fill-opacity="0.35"/>
+    <text x="400" y="225" text-anchor="middle" font-family="DM Sans, system-ui, sans-serif" font-size="30" fill="#7b705f">Foto no disponible</text>
+</svg>

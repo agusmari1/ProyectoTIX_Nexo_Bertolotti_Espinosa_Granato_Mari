@@ -1,9 +1,11 @@
 package uy.edu.um.nexo.mnatural.controllers;
 
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -22,13 +24,16 @@ import java.security.Principal;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.flash;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
@@ -155,6 +160,48 @@ class ProviderActivityManagementControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(view().name("provider/activity-edit"))
                 .andExpect(model().attributeHasFieldErrors("activity", "pricePerPerson"));
+    }
+
+    private org.springframework.test.web.servlet.RequestBuilder postWithPhoto() {
+        return multipart("/provider/activities/10/edit")
+                .file(new MockMultipartFile("photo", "foto.jpg", "image/jpeg", new byte[]{1, 2, 3}))
+                .principal(PROVIDER)
+                .param("businessId", "2")
+                .param("name", "Trekking")
+                .param("description", "Descripción nueva")
+                .param("address", "Plaza")
+                .param("department", "LAVALLEJA")
+                .param("locality", "Minas")
+                .param("durationMinutes", "60")
+                .param("pricePerPerson", "500")
+                .param("bookingCutoffMinutes", "0")
+                .param("activityTypeIds", "1");
+    }
+
+    @Test
+    void theUploadedPhotoReachesTheService() throws Exception {
+        Activity current = activity();
+        when(activityService.findOwnActivity("prestador@example.com", 10L)).thenReturn(current);
+        when(activityService.update(eq("prestador@example.com"), eq(10L), any(ActivityDTO.class))).thenReturn(current);
+
+        mockMvc.perform(postWithPhoto()).andExpect(redirectedUrl("/provider/activities"));
+
+        ArgumentCaptor<ActivityDTO> dto = ArgumentCaptor.forClass(ActivityDTO.class);
+        verify(activityService).update(eq("prestador@example.com"), eq(10L), dto.capture());
+        assertThat(dto.getValue().getPhoto().getOriginalFilename()).isEqualTo("foto.jpg");
+    }
+
+    @Test
+    void anInvalidPhotoShowsTheMessageBelowTheField() throws Exception {
+        when(activityService.findOwnActivity("prestador@example.com", 10L)).thenReturn(activity());
+        when(activityService.update(eq("prestador@example.com"), eq(10L), any(ActivityDTO.class)))
+                .thenThrow(new ActivityValidationException("photo", "La foto no puede superar los 5 MB."));
+
+        mockMvc.perform(postWithPhoto())
+                .andExpect(status().isOk())
+                .andExpect(view().name("provider/activity-edit"))
+                .andExpect(model().attributeHasFieldErrors("activity", "photo"))
+                .andExpect(content().string(containsString("La foto no puede superar los 5 MB.")));
     }
 
     @Test

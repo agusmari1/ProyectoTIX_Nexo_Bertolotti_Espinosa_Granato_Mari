@@ -43,19 +43,22 @@ public class ActivityService {
     private final UserRepository userRepository;
     private final BookingService bookingService;
     private final BookingCancellationService bookingCancellationService;
+    private final ActivityPhotoStorage photoStorage;
 
     public ActivityService(ActivityRepository activityRepository,
                            ActivityScheduleRepository activityScheduleRepository,
                            ActivityTypeRepository activityTypeRepository,
                            UserRepository userRepository,
                            BookingService bookingService,
-                           BookingCancellationService bookingCancellationService) {
+                           BookingCancellationService bookingCancellationService,
+                           ActivityPhotoStorage photoStorage) {
         this.activityRepository = activityRepository;
         this.activityScheduleRepository = activityScheduleRepository;
         this.activityTypeRepository = activityTypeRepository;
         this.userRepository = userRepository;
         this.bookingService = bookingService;
         this.bookingCancellationService = bookingCancellationService;
+        this.photoStorage = photoStorage;
     }
 
     // Emprendimientos del prestador, para elegir a cuál pertenece la actividad
@@ -112,12 +115,13 @@ public class ActivityService {
         activity.setDepartment(dto.getDepartment());
         activity.setLocality(dto.getLocality().trim());
         applyEditableFields(activity, dto, types);
+        activity.setPhotoFile(photoStorage.store(dto.getPhoto()));
         // No requiere aprobación del administrador (especificación, sección 6)
         activity.setStatus(ActivityStatus.PUBLISHED);
         return activityRepository.save(activity);
     }
 
-    // El prestador edita su actividad: descripción, precio, duración, edad mínima, requisitos, equipamiento,
+    // El prestador edita su actividad: descripción, foto, precio, duración, edad mínima, requisitos, equipamiento,
     // límite de reserva, política de cancelación y tipos. El nombre, el emprendimiento y el lugar no cambian.
     // Si cambia el precio, las reservas que ya existen mantienen el total con el que se hicieron (Booking.totalAmount)
     @Transactional
@@ -126,6 +130,12 @@ public class ActivityService {
         Set<ActivityType> types = resolveTypes(dto.getActivityTypeIds());
         validateActivity(dto);
         applyEditableFields(activity, dto, types);
+        // Sin foto nueva queda la que tenía
+        if (dto.getPhoto() != null && !dto.getPhoto().isEmpty()) {
+            String previousPhoto = activity.getPhotoFile();
+            activity.setPhotoFile(photoStorage.store(dto.getPhoto()));
+            photoStorage.deleteAfterCommit(previousPhoto);
+        }
         return activityRepository.save(activity);
     }
 

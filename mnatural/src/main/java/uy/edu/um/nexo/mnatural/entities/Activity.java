@@ -57,6 +57,10 @@ public class Activity {
     @Column(nullable = true, precision = 5, scale = 2)
     private BigDecimal refundPercentage;
 
+    // Archivo de la foto subida por el prestador. null en las actividades sin foto subida
+    @Column(nullable = true)
+    private String photoFile;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private ActivityStatus status = ActivityStatus.DRAFT;
@@ -203,6 +207,14 @@ public class Activity {
 
     public void setRefundPercentage(BigDecimal refundPercentage) {
         this.refundPercentage = refundPercentage;
+    }
+
+    public String getPhotoFile() {
+        return photoFile;
+    }
+
+    public void setPhotoFile(String photoFile) {
+        this.photoFile = photoFile;
     }
 
     public ActivityStatus getStatus() {

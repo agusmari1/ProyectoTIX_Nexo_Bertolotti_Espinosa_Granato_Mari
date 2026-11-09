@@ -934,3 +934,14 @@ dl.row dd {
         text-align: center;
     }
 }
+
+/* Foto actual en el formulario de editar actividad */
+.activity-current-photo {
+    display: block;
+    width: 100%;
+    max-width: 320px;
+    height: 180px;
+    margin-bottom: 0.75rem;
+    object-fit: cover;
+    border-radius: var(--radius-sm);
+}

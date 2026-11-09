@@ -27,7 +27,8 @@
         Esta actividad está suspendida: no se ve en el portal ni se puede reservar.
     </div>
 
-    <form th:action="@{/provider/activities/{id}/edit(id=${activityId})}" th:object="${activity}" method="post" novalidate>
+    <form th:action="@{/provider/activities/{id}/edit(id=${activityId})}" th:object="${activity}" method="post"
+          enctype="multipart/form-data" novalidate>
 
         <!-- Estos datos no se editan: viajan solo para que el formulario sea válido -->
         <input type="hidden" th:field="*{businessId}">
@@ -44,6 +45,18 @@
                     <label for="description" class="form-label">Descripción</label>
                     <textarea id="description" rows="4" class="form-control" th:field="*{description}" th:errorclass="is-invalid"></textarea>
                     <div class="invalid-feedback" th:errors="*{description}"></div>
+                </div>
+
+                <!-- Sin th:field: un input de archivo no puede volver a llenarse con el valor anterior -->
+                <div class="col-12">
+                    <label for="photo" class="form-label">Foto de la actividad <span class="text-muted fw-normal">(opcional)</span></label>
+                    <img th:src="@{${currentPhotoUrl}}" alt="Foto actual de la actividad" class="activity-current-photo">
+                    <input type="file" id="photo" name="photo" class="form-control"
+                           accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+                           th:classappend="${#fields.hasErrors('photo')} ? 'is-invalid'">
+                    <div class="invalid-feedback" id="photo-browser-error"></div>
+                    <div class="invalid-feedback" th:errors="*{photo}"></div>
+                    <div class="form-text">Esta es la foto actual. Si no elegís una nueva (JPG, PNG o WEBP, de hasta 5 MB), queda esta.</div>
                 </div>
 
                 <div class="col-12">
@@ -160,5 +173,6 @@
     </div>
 </footer>
 
+<script th:src="@{/js/activity-photo.js}"></script>
 </body>
 </html>

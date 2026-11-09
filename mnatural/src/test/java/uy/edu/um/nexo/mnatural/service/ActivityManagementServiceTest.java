@@ -2,12 +2,15 @@ package uy.edu.um.nexo.mnatural.service;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.mock.web.MockMultipartFile;
 import uy.edu.um.nexo.mnatural.dto.ActivityDTO;
 import uy.edu.um.nexo.mnatural.entities.Activity;
 import uy.edu.um.nexo.mnatural.entities.ActivitySchedule;
 import uy.edu.um.nexo.mnatural.entities.ActivityStatus;
 import uy.edu.um.nexo.mnatural.entities.ActivityType;
 import uy.edu.um.nexo.mnatural.entities.ApprovalStatus;
+import uy.edu.um.nexo.mnatural.entities.Business;
+import uy.edu.um.nexo.mnatural.entities.Department;
 import uy.edu.um.nexo.mnatural.entities.Provider;
 import uy.edu.um.nexo.mnatural.entities.ScheduleStatus;
 import uy.edu.um.nexo.mnatural.exception.ActivityNotFoundException;
@@ -44,6 +47,7 @@ class ActivityManagementServiceTest {
     private final ActivityScheduleRepository scheduleRepository = mock(ActivityScheduleRepository.class);
     private final ActivityTypeRepository typeRepository = mock(ActivityTypeRepository.class);
     private final BookingCancellationService cancellationService = mock(BookingCancellationService.class);
+    private final ActivityPhotoStorage photoStorage = mock(ActivityPhotoStorage.class);
 
     private ActivityService service;
     private Activity activity;
@@ -52,7 +56,7 @@ class ActivityManagementServiceTest {
     @BeforeEach
     void setUp() {
         service = new ActivityService(activityRepository, scheduleRepository, typeRepository, userRepository,
-                mock(BookingService.class), cancellationService);
+                mock(BookingService.class), cancellationService, photoStorage);
 
         Provider provider = new Provider();
         provider.setId(PROVIDER_ID);
@@ -104,6 +108,74 @@ class ActivityManagementServiceTest {
         schedule.setStatus(status);
         schedule.setStartDateTime(start);
         return schedule;
+    }
+
+    // ===== Foto =====
+
+    private ActivityDTO validNewActivity() {
+        ActivityDTO dto = validDto();
+        dto.setName("Trekking");
+        dto.setDepartment(Department.LAVALLEJA);
+        return dto;
+    }
+
+    private void givenProviderWithABusiness() {
+        Business business = new Business();
+        business.setId(2L);
+        Provider provider = new Provider();
+        provider.setId(PROVIDER_ID);
+        provider.setApprovalStatus(ApprovalStatus.APPROVED);
+        provider.setBusinesses(List.of(business));
+        when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(provider));
+    }
+
+    @Test
+    void creatingAnActivitySavesTheStoredPhoto() {
+        givenProviderWithABusiness();
+        ActivityDTO dto = validNewActivity();
+        dto.setPhoto(new MockMultipartFile("photo", new byte[]{1}));
+        when(photoStorage.store(dto.getPhoto())).thenReturn("guardada.jpg");
+
+        Activity created = service.create(EMAIL, dto);
+
+        assertThat(created.getPhotoFile()).isEqualTo("guardada.jpg");
+    }
+
+    @Test
+    void creatingAnActivityWithoutPhotoFailsAndSavesNothing() {
+        givenProviderWithABusiness();
+        when(photoStorage.store(null)).thenThrow(new ActivityValidationException("photo", "Subí una foto de la actividad."));
+
+        assertThatThrownBy(() -> service.create(EMAIL, validNewActivity()))
+                .isInstanceOf(ActivityValidationException.class)
+                .hasMessageContaining("foto");
+        verify(activityRepository, never()).save(any());
+    }
+
+    @Test
+    void editingWithoutANewPhotoKeepsTheCurrentOne() {
+        activity.setPhotoFile("actual.jpg");
+        ActivityDTO dto = validDto();
+        dto.setPhoto(new MockMultipartFile("photo", new byte[0]));
+
+        service.update(EMAIL, ACTIVITY_ID, dto);
+
+        assertThat(activity.getPhotoFile()).isEqualTo("actual.jpg");
+        verify(photoStorage, never()).store(any());
+        verify(photoStorage, never()).deleteAfterCommit(any());
+    }
+
+    @Test
+    void editingWithANewPhotoReplacesTheCurrentOneAndDeletesIt() {
+        activity.setPhotoFile("actual.jpg");
+        ActivityDTO dto = validDto();
+        dto.setPhoto(new MockMultipartFile("photo", new byte[]{1}));
+        when(photoStorage.store(dto.getPhoto())).thenReturn("nueva.jpg");
+
+        service.update(EMAIL, ACTIVITY_ID, dto);
+
+        assertThat(activity.getPhotoFile()).isEqualTo("nueva.jpg");
+        verify(photoStorage).deleteAfterCommit("actual.jpg");
     }
 
     // ===== Editar =====

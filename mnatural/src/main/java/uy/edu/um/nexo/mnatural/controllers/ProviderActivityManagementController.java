@@ -25,6 +25,7 @@ import uy.edu.um.nexo.mnatural.entities.ActivityStatus;
 import uy.edu.um.nexo.mnatural.entities.ActivityType;
 import uy.edu.um.nexo.mnatural.exception.ActivityNotFoundException;
 import uy.edu.um.nexo.mnatural.exception.ActivityValidationException;
+import uy.edu.um.nexo.mnatural.service.ActivityPhotos;
 import uy.edu.um.nexo.mnatural.service.ActivityService;
 import uy.edu.um.nexo.mnatural.service.SuspensionResult;
 
@@ -41,6 +42,7 @@ public class ProviderActivityManagementController {
     private static final String LIST_URL = "redirect:/provider/activities";
 
     private final ActivityService activityService;
+    private final ActivityPhotos activityPhotos = new ActivityPhotos();
 
     public ProviderActivityManagementController(ActivityService activityService) {
         this.activityService = activityService;
@@ -125,6 +127,7 @@ public class ProviderActivityManagementController {
     private void addFormData(Activity activity, Model model) {
         model.addAttribute("activityName", activity.getName());
         model.addAttribute("activityId", activity.getId());
+        model.addAttribute("currentPhotoUrl", activityPhotos.urlOrDefault(activity));
         model.addAttribute("suspended", activity.getStatus() == ActivityStatus.SUSPENDED);
         model.addAttribute("activityTypes", activityService.findEnabledTypes());
     }
