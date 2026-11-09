@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Calificar actividad | Uruguay Mnatural</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/css/styles.css}">
+</head>
+<body>
+
+<header class="site-header">
+    <div class="container">
+        <a th:href="@{/}" class="brand"><span class="brand-mark"></span>Uruguay Mnatural</a>
+    </div>
+</header>
+
+<!-- La foto se define en styles.css (.hero-actividades) -->
+<section class="hero hero-compact hero-photo hero-actividades">
+    <div class="container">
+        <h1>Tu reseña</h1>
+        <p th:text="${data.activityName}"></p>
+    </div>
+</section>
+
+<main class="page page-flat container page-wide">
+
+    <a th:href="@{/actividades/{id}(id=${data.activityId})}" class="back-link">&larr; Ver la actividad</a>
+
+    <div class="alert alert-success" th:if="${successMessage}" th:text="${successMessage}"></div>
+    <div class="alert alert-danger" th:if="${errorMessage}" th:text="${errorMessage}"></div>
+
+    <p class="text-muted">
+        Reserva del <span th:text="${#temporals.format(data.startDateTime, 'dd/MM/yyyy')}"></span>
+        a las <span th:text="${#temporals.format(data.startDateTime, 'HH:mm')}"></span> h.
+    </p>
+
+    <!-- Ya la calificó: se muestra su reseña, con la opción de eliminarla -->
+    <div class="card mb-4" th:if="${data.review}">
+        <div class="card-header">Tu reseña publicada</div>
+        <div class="card-body">
+            <p class="mb-1">
+                <span class="text-warning" th:attr="aria-label=${data.review.rating} + ' de 5'">
+                    <th:block th:each="i : ${#numbers.sequence(1, 5)}" th:text="${i <= data.review.rating} ? '★' : '☆'"></th:block>
+                </span>
+                <span class="small text-muted" th:text="' · ' + ${#temporals.format(data.review.createdAt, 'dd/MM/yyyy')}"></span>
+            </p>
+            <p style="white-space: pre-line" th:text="${data.review.comment}"></p>
+            <div class="ms-3 ps-3 border-start small mb-3" th:if="${data.review.providerReply}">
+                <span class="text-label">Respuesta del prestador</span>
+                <p class="mb-0" style="white-space: pre-line" th:text="${data.review.providerReply}"></p>
+            </div>
+            <form th:action="@{/reviews/bookings/{id}/delete(id=${data.bookingId})}" method="post"
+                  onsubmit="return confirm('¿Eliminar tu reseña? Se borran el comentario y la calificación, y no vas a poder volver a calificar esta reserva.');">
+                <button type="submit" class="btn btn-outline-danger btn-sm">Eliminar mi reseña</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Todavía no se puede (o ya no se puede) calificar -->
+    <div class="alert alert-info" th:if="${data.review == null and !data.canReview}" th:text="${data.blockedReason}"></div>
+
+    <!-- Formulario -->
+    <div class="card" th:if="${data.canReview}">
+        <div class="card-header">Calificá la actividad</div>
+        <div class="card-body">
+            <form th:action="@{/reviews/bookings/{id}(id=${data.bookingId})}" th:object="${form}" method="post" novalidate>
+                <fieldset class="mb-3">
+                    <legend class="form-label fs-6">Calificación</legend>
+                    <div class="form-check form-check-inline" th:each="i : ${#numbers.sequence(1, 5)}">
+                        <input class="form-check-input" type="radio" th:field="*{rating}" th:value="${i}"
+                               th:errorclass="is-invalid">
+                        <label class="form-check-label" th:for="${#ids.prev('rating')}"
+                               th:text="${i} + (${i == 1} ? ' estrella' : ' estrellas')"></label>
+                    </div>
+                    <div class="text-danger small" th:if="${#fields.hasErrors('rating')}" th:errors="*{rating}"></div>
+                </fieldset>
+
+                <div class="mb-3">
+                    <label for="comment" class="form-label">Comentario</label>
+                    <textarea id="comment" class="form-control" rows="5" maxlength="1000" th:field="*{comment}"
+                              th:errorclass="is-invalid" placeholder="Contanos cómo fue la experiencia"></textarea>
+                    <div class="invalid-feedback" th:errors="*{comment}"></div>
+                    <div class="form-text">Hasta 1000 caracteres. Tu nombre y la inicial de tu apellido se muestran junto al comentario.</div>
+                </div>
+
+                <button type="submit" class="btn btn-success">Publicar reseña</button>
+            </form>
+        </div>
+    </div>
+
+</main>
+
+<footer class="site-footer">
+    <div class="container">
+        <a th:href="@{/}" class="brand"><span class="brand-mark"></span>Uruguay Mnatural</a>
+        <span>Experiencias de naturaleza en todo Uruguay</span>
+    </div>
+</footer>
+
+</body>
+</html>

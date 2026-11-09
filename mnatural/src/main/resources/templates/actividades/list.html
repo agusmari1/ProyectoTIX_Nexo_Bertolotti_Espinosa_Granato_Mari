@@ -96,6 +96,7 @@
                 <div class="card-body">
                     <p class="small text-muted mb-2"
                        th:text="${activity.locality + ', ' + departments[activity.department]}"></p>
+                    <div th:replace="~{fragments/reviews :: summary(${reviewSummaries[activity.id]})}"></div>
                     <p class="small" th:text="${#strings.abbreviate(activity.description, 140)}"></p>
                     <div class="mb-2">
                         <span class="badge text-bg-light border me-1" th:each="type : ${activity.activityTypes}"

@@ -25,7 +25,10 @@
 
 <main class="page page-flat container page-wide">
 
-    <a th:href="@{/provider/activities}" class="back-link">&larr; Mis actividades</a>
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <a th:href="@{/provider/activities}" class="back-link">&larr; Mis actividades</a>
+        <a th:href="@{/provider/activities/{id}/reviews(id=${activity.id})}" class="btn btn-outline-success btn-sm">Ver reseñas</a>
+    </div>
 
     <div class="alert alert-success" th:if="${successMessage}" th:text="${successMessage}"></div>
     <div class="alert alert-danger" th:if="${errorMessage}" th:text="${errorMessage}"></div>

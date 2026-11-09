@@ -88,6 +88,7 @@
                     </div>
                 </div>
             </div>
+            <div th:replace="~{fragments/reviews :: section(${reviewSummaries[activity.id]}, ${activityReviews})}"></div>
         </div>
 
         <!-- Próximas fechas: los lugares libres se calculan con BookingService -->

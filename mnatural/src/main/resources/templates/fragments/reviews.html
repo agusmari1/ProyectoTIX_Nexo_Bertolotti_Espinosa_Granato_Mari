@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<!--
+    Reseñas de actividades (ESPECIFICACION.md, sección 5). Los datos los agrega PublicReviewModelAdvice:
+      - reviewSummaries: id de actividad -> promedio y cantidad (null si no tiene reseñas);
+      - activityReviews: reseñas de la actividad del detalle.
+    Uso en el listado:  <div th:replace="~{fragments/reviews :: summary(${reviewSummaries[activity.id]})}"></div>
+    Uso en el detalle:  <div th:replace="~{fragments/reviews :: section(${reviewSummaries[activity.id]}, ${activityReviews})}"></div>
+-->
+
+<!-- Promedio con estrellas y cantidad. Una estrella está llena si el promedio redondeado la alcanza -->
+<p th:fragment="summary(summary)" class="small mb-2">
+    <th:block th:if="${summary != null}">
+        <span class="text-warning" aria-hidden="true">
+            <th:block th:each="i : ${#numbers.sequence(1, 5)}" th:text="${i <= summary.average + 0.5} ? '★' : '☆'"></th:block>
+        </span>
+        <strong th:text="${#numbers.formatDecimal(summary.average, 1, 'POINT', 1, 'COMMA')}"></strong>
+        <span class="text-muted"
+              th:text="${summary.count == 1} ? '(1 valoración)' : '(' + ${summary.count} + ' valoraciones)'"></span>
+    </th:block>
+    <span th:if="${summary == null}" class="text-muted">Sin valoraciones todavía</span>
+</p>
+
+<!-- Tarjeta del detalle: promedio y lista de comentarios con la respuesta del prestador -->
+<div th:fragment="section(summary, reviews)" class="card mb-4">
+    <div class="card-header">Valoraciones</div>
+    <div class="card-body">
+        <div th:replace="~{fragments/reviews :: summary(${summary})}"></div>
+
+        <p class="text-muted mb-0" th:if="${#lists.isEmpty(reviews)}">
+            Todavía nadie dejó un comentario sobre esta actividad.
+        </p>
+
+        <div class="border-top pt-3 mt-3" th:each="review : ${reviews}">
+            <div class="d-flex flex-wrap justify-content-between gap-2">
+                <div>
+                    <strong th:text="${review.authorName}"></strong>
+                    <span class="text-warning ms-1" th:attr="aria-label=${review.rating} + ' de 5'">
+                        <th:block th:each="i : ${#numbers.sequence(1, 5)}" th:text="${i <= review.rating} ? '★' : '☆'"></th:block>
+                    </span>
+                </div>
+                <span class="small text-muted" th:text="${#temporals.format(review.createdAt, 'dd/MM/yyyy')}"></span>
+            </div>
+            <p class="mb-2 mt-1" style="white-space: pre-line" th:text="${review.comment}"></p>
+            <div class="ms-3 ps-3 border-start small" th:if="${review.providerReply}">
+                <span class="text-label">Respuesta del prestador</span>
+                <span class="text-muted" th:text="' · ' + ${#temporals.format(review.repliedAt, 'dd/MM/yyyy')}"></span>
+                <p class="mb-0" style="white-space: pre-line" th:text="${review.providerReply}"></p>
+            </div>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>
