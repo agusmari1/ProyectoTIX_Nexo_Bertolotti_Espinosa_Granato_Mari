@@ -2,6 +2,8 @@ package uy.edu.um.nexo.mnatural.service;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import uy.edu.um.nexo.mnatural.dto.BookingPaymentDTO;
@@ -57,11 +59,23 @@ public class PaymentService {
 
     private final PaymentTransactionRepository paymentTransactionRepository;
     private final PaymentGateway paymentGateway;
+    private final ApplicationEventPublisher eventPublisher;
 
+    // Este es el que usa Spring. Los correos (pago rechazado, reembolso completado) salen recién cuando se confirma la
+    // transacción (EmailNotifier)
+    @Autowired
     public PaymentService(PaymentTransactionRepository paymentTransactionRepository,
-                          PaymentGateway paymentGateway) {
+                          PaymentGateway paymentGateway,
+                          ApplicationEventPublisher eventPublisher) {
         this.paymentTransactionRepository = paymentTransactionRepository;
         this.paymentGateway = paymentGateway;
+        this.eventPublisher = eventPublisher;
+    }
+
+    // Sin avisos por correo (para los tests que no lo necesitan)
+    public PaymentService(PaymentTransactionRepository paymentTransactionRepository,
+                          PaymentGateway paymentGateway) {
+        this(paymentTransactionRepository, paymentGateway, event -> { });
     }
 
     // Abre un intento de pago nuevo para la reserva del turista.
@@ -110,6 +124,7 @@ public class PaymentService {
             transaction.setStatus(PaymentStatus.ERROR);
             transaction.setFailureReason("No se pudo conectar con el servicio de pagos. Probá de nuevo en unos minutos.");
             paymentTransactionRepository.save(transaction);
+            publishPaymentFailed(booking, true, null, now);
             return new PaymentStart(transaction, null);
         }
     }
@@ -170,7 +185,11 @@ public class PaymentService {
         }
         PaymentTransaction charge = approvedCharge(bookingId).orElseThrow();
         log.warn("La reserva {} está {} y tiene un pago aprobado: se reembolsa", bookingId, booking.getStatus());
-        requestRefund(booking, charge, charge.getAmount(), true);
+        PaymentTransaction refund = requestRefund(booking, charge, charge.getAmount(), true);
+        if (refund.getStatus() == PaymentStatus.APPROVED) {
+            publishRefundCompleted(booking, refund, "Tu pago llegó cuando la reserva ya había vencido y los lugares "
+                    + "podían haberse ocupado, así que no se pudo confirmar y se te devolvió el dinero.");
+        }
         return true;
     }
 
@@ -234,6 +253,7 @@ public class PaymentService {
             transaction.setFailureReason("No pudimos confirmar el pago con el servicio de pagos. "
                     + "Si se te cobró, se va a reflejar en unos minutos; si no, probá de nuevo.");
             extendHold(booking, now);
+            publishPaymentFailed(booking, true, null, now);
         }
         return transaction;
     }
@@ -333,6 +353,16 @@ public class PaymentService {
                 percentage.compareTo(FULL_REFUND_PERCENTAGE) == 0);
     }
 
+    private void publishRefundCompleted(Booking booking, PaymentTransaction refund, String reason) {
+        try {
+            eventPublisher.publishEvent(new EmailEvents.RefundCompleted(booking.getId(), booking.getTourist().getEmail(),
+                    booking.getTourist().getName(), booking.getBookingCode(),
+                    booking.getActivitySchedule().getActivity().getName(), refund.getAmount(), reason));
+        } catch (RuntimeException e) {
+            log.error("No se pudo preparar el aviso del reembolso de la reserva {}: {}", booking.getId(), e.getMessage(), e);
+        }
+    }
+
     // Red de seguridad: reembolsa las reservas vencidas que tienen un pago aprobado y ningún reembolso (por ejemplo,
     // la reserva venció justo después de que el turista pagó y nadie volvió a mirarla). Lo llama RefundRetryTask.
     // Devuelve cuántos reembolsos pidió
@@ -364,8 +394,13 @@ public class PaymentService {
             }
             BigDecimal amount = last.get().getAmount();
             boolean fullRefund = amount.compareTo(charge.get().getAmount()) == 0;
-            if (isDone(requestRefund(booking, charge.get(), amount, fullRefund))) {
+            PaymentTransaction refund = requestRefund(booking, charge.get(), amount, fullRefund);
+            if (isDone(refund)) {
                 done++;
+                // El turista ya supo de la cancelación y de que el reembolso estaba en curso: ahora se le avisa que se hizo
+                if (refund.getStatus() == PaymentStatus.APPROVED) {
+                    publishRefundCompleted(booking, refund, null);
+                }
             }
         }
         return done;
@@ -457,6 +492,7 @@ public class PaymentService {
     // Aplica el resultado informado por el servicio de pagos a un intento (venga de consultar el pago o de cobrarlo)
     private void applyResult(PaymentTransaction transaction, GatewayPaymentStatus result, LocalDateTime now) {
         Booking booking = transaction.getBooking();
+        PaymentStatus previous = transaction.getStatus();
         PaymentStatus status = result.status();
         String failureReason = status == PaymentStatus.APPROVED ? null : result.failureReason();
         // Un aprobado por otro monto o en otra moneda es un resultado inesperado: no se da por pagado
@@ -482,6 +518,25 @@ public class PaymentService {
             // Se cobró una reserva que ya venció o se canceló: no se confirma y habrá que reembolsarla
             log.warn("Pago {} aprobado para la reserva {}, que está {}: requiere reembolso",
                     transaction.getExternalReference(), booking.getId(), booking.getStatus());
+        }
+        // Se avisa al turista solo cuando el intento PASA a rechazado o con error: volver a consultar uno que ya estaba
+        // rechazado (o recibir el mismo aviso del servicio varias veces) no repite el correo
+        if ((status == PaymentStatus.REJECTED || status == PaymentStatus.ERROR) && previous != status) {
+            publishPaymentFailed(booking, status == PaymentStatus.ERROR, failureReason, now);
+        }
+    }
+
+    // Aviso por correo de un pago rechazado o con error. Dice hasta cuándo puede reintentar, si la reserva sigue pendiente
+    private void publishPaymentFailed(Booking booking, boolean error, String reason, LocalDateTime now) {
+        // Un error al armar el aviso nunca puede romper el pago que se está registrando
+        try {
+            LocalDateTime payBefore = booking.getStatus() == BookingStatus.PENDING && booking.getHeldUntil() != null
+                    && now.isBefore(booking.getHeldUntil()) ? booking.getHeldUntil() : null;
+            eventPublisher.publishEvent(new EmailEvents.PaymentFailed(booking.getId(), booking.getTourist().getEmail(),
+                    booking.getTourist().getName(), booking.getActivitySchedule().getActivity().getName(), error, reason,
+                    payBefore));
+        } catch (RuntimeException e) {
+            log.error("No se pudo preparar el aviso del pago de la reserva {}: {}", booking.getId(), e.getMessage(), e);
         }
     }
 

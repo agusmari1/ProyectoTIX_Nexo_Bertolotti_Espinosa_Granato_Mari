@@ -1,5 +1,7 @@
 package uy.edu.um.nexo.mnatural.service;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import uy.edu.um.nexo.mnatural.dto.BookingRequestDTO;
@@ -40,11 +42,22 @@ public class BookingService {
     private final BookingRepository bookingRepository;
     private final ActivityScheduleRepository activityScheduleRepository;
     private final SecureRandom random = new SecureRandom();
+    private final ApplicationEventPublisher eventPublisher;
 
+    // Este es el que usa Spring. El correo "reserva pendiente de pago" sale recién cuando se confirma la transacción
+    @Autowired
     public BookingService(BookingRepository bookingRepository,
-                          ActivityScheduleRepository activityScheduleRepository) {
+                          ActivityScheduleRepository activityScheduleRepository,
+                          ApplicationEventPublisher eventPublisher) {
         this.bookingRepository = bookingRepository;
         this.activityScheduleRepository = activityScheduleRepository;
+        this.eventPublisher = eventPublisher;
+    }
+
+    // Sin avisos por correo (para los tests que no lo necesitan)
+    public BookingService(BookingRepository bookingRepository,
+                          ActivityScheduleRepository activityScheduleRepository) {
+        this(bookingRepository, activityScheduleRepository, event -> { });
     }
 
     // Cupos libres de una fecha y horario, para mostrarlos antes de reservar
@@ -93,7 +106,12 @@ public class BookingService {
         booking.setHeldUntil(now.plusMinutes(HOLD_MINUTES));
         participants.forEach(booking::addParticipant);
 
-        return bookingRepository.save(booking);
+        Booking saved = bookingRepository.save(booking);
+        // Aviso al turista: reserva creada, pendiente de pago, con el plazo para pagar
+        eventPublisher.publishEvent(new EmailEvents.BookingPending(saved.getId(), tourist.getEmail(), tourist.getName(),
+                saved.getBookingCode(), activity.getName(), schedule.getStartDateTime(), participants.size(),
+                saved.getTotalAmount(), saved.getHeldUntil()));
+        return saved;
     }
 
     // Lo llama BookingExpirationTask cada minuto. Devuelve cuántas reservas vencieron
