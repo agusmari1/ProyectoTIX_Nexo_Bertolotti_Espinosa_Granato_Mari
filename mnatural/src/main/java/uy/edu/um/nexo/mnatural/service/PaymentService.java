@@ -249,6 +249,29 @@ public class PaymentService {
         return done;
     }
 
+    // Reservas vencidas que igual tienen un cobro aprobado y todavía no un reembolso hecho (por ejemplo, el turista
+    // pagó justo cuando vencía la retención, o el reembolso en el momento falló): se devuelve el 100 %.
+    // Una reserva vencida nunca se confirmó, así que todo lo cobrado se devuelve. Lo llama RefundRetryTask.
+    // Devuelve cuántos reembolsos se completaron
+    @Transactional
+    public int refundPaidExpiredBookings() {
+        int done = 0;
+        for (Long bookingId : paymentTransactionRepository.findExpiredBookingIdsWithUnrefundedCharge()) {
+            // Se bloquea la reserva y se vuelve a verificar, por si otro pedido lo reembolsó al mismo tiempo
+            Booking booking = paymentTransactionRepository.findBookingForUpdate(bookingId).orElse(null);
+            Optional<PaymentTransaction> charge = approvedCharge(bookingId);
+            if (booking == null || booking.getStatus() != BookingStatus.EXPIRED || charge.isEmpty()
+                    || isRefunded(bookingId)) {
+                continue;
+            }
+            log.warn("La reserva {} venció con un pago aprobado: se reembolsa el 100 %", bookingId);
+            if (isDone(requestRefund(booking, charge.get(), charge.get().getAmount(), true))) {
+                done++;
+            }
+        }
+        return done;
+    }
+
     public boolean hasApprovedCharge(Long bookingId) {
         return paymentTransactionRepository.existsByBookingIdAndTypeAndStatus(
                 bookingId, PaymentType.CHARGE, PaymentStatus.APPROVED);
@@ -345,10 +368,14 @@ public class PaymentService {
 
         if (status != PaymentStatus.APPROVED) {
             extendHold(booking, now);
-        } else if (booking.getStatus() != BookingStatus.PENDING) {
-            // Se cobró una reserva que ya venció o se canceló: no se confirma y habrá que reembolsarla
-            log.warn("Pago {} aprobado para la reserva {}, que está {}: requiere reembolso",
+        } else if (booking.getStatus() == BookingStatus.EXPIRED || booking.getStatus() == BookingStatus.CANCELLED) {
+            // Se cobró una reserva que ya venció o se canceló: no se confirma y se devuelve el 100 % en el momento.
+            // Si el reembolso falla, lo reintenta RefundRetryTask
+            log.warn("Pago {} aprobado para la reserva {}, que está {}: se reembolsa el 100 %",
                     transaction.getExternalReference(), booking.getId(), booking.getStatus());
+            if (!isRefunded(booking.getId())) {
+                requestRefund(booking, transaction, transaction.getAmount(), true);
+            }
         }
     }
 

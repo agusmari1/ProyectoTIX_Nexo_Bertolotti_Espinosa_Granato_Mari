@@ -589,6 +589,99 @@ class PaymentServiceTest {
         verify(gateway).refund(eq("MN-30-abc"), amountEq("3000.00"), eq(true));
     }
 
+    // ===== Pago aprobado sobre una reserva que ya no está pendiente =====
+
+    @Test
+    void aPaymentApprovedOnAnExpiredBookingIsRefundedInFullRightAway() {
+        PaymentTransaction transaction = pendingTransaction();
+        booking.setStatus(BookingStatus.EXPIRED);
+        when(gateway.getPaymentStatus("SIM-123"))
+                .thenReturn(new GatewayPaymentStatus(PaymentStatus.APPROVED, null, null, null, null, null));
+        when(gateway.refund(anyString(), any(), anyBoolean()))
+                .thenReturn(new GatewayRefundResult(PaymentStatus.APPROVED, "REF-4", null));
+
+        refundService().syncPayment(100L, TOURIST_ID);
+
+        assertThat(transaction.getStatus()).isEqualTo(PaymentStatus.APPROVED);
+        // No se confirma: sigue vencida, y se devuelve el 100 % del cobro
+        assertThat(booking.getStatus()).isEqualTo(BookingStatus.EXPIRED);
+        verify(gateway).refund(eq("SIM-123"), amountEq("3000.00"), eq(true));
+        verify(repository).save(argThat(t -> t.getType() == PaymentType.REFUND && t.getOriginalPayment() == transaction));
+    }
+
+    @Test
+    void aPaymentApprovedOnACancelledBookingIsAlsoRefunded() {
+        pendingTransaction();
+        booking.setStatus(BookingStatus.CANCELLED);
+        when(gateway.getPaymentStatus("SIM-123"))
+                .thenReturn(new GatewayPaymentStatus(PaymentStatus.APPROVED, null, null, null, null, null));
+        when(gateway.refund(anyString(), any(), anyBoolean()))
+                .thenReturn(new GatewayRefundResult(PaymentStatus.APPROVED, "REF-5", null));
+
+        refundService().syncPayment(100L, TOURIST_ID);
+
+        verify(gateway).refund(eq("SIM-123"), amountEq("3000.00"), eq(true));
+    }
+
+    @Test
+    void aPaymentApprovedOnAPendingBookingIsNotRefunded() {
+        pendingTransaction();
+        when(gateway.getPaymentStatus("SIM-123"))
+                .thenReturn(new GatewayPaymentStatus(PaymentStatus.APPROVED, null, null, null, null, null));
+
+        refundService().syncPayment(100L, TOURIST_ID);
+
+        verify(gateway, never()).refund(anyString(), any(), anyBoolean());
+    }
+
+    @Test
+    void ifTheImmediateRefundFailsItIsRecordedAsErrorToRetry() {
+        PaymentTransaction transaction = pendingTransaction();
+        booking.setStatus(BookingStatus.EXPIRED);
+        when(gateway.getPaymentStatus("SIM-123"))
+                .thenReturn(new GatewayPaymentStatus(PaymentStatus.APPROVED, null, null, null, null, null));
+        when(gateway.refund(anyString(), any(), anyBoolean())).thenThrow(new PaymentGatewayException("timeout"));
+
+        PaymentTransaction result = refundService().syncPayment(100L, TOURIST_ID);
+
+        // El cobro queda aprobado (se cobró de verdad) y el reembolso queda en ERROR para reintentarlo
+        assertThat(result.getStatus()).isEqualTo(PaymentStatus.APPROVED);
+        verify(repository).save(argThat(t -> t.getType() == PaymentType.REFUND && t.getStatus() == PaymentStatus.ERROR
+                && t.getOriginalPayment() == transaction));
+    }
+
+    @Test
+    void theSweepRefundsExpiredBookingsThatWerePaid() {
+        approvedCharge();
+        booking.setStatus(BookingStatus.EXPIRED);
+        when(repository.findExpiredBookingIdsWithUnrefundedCharge()).thenReturn(List.of(BOOKING_ID));
+        when(gateway.refund(anyString(), any(), anyBoolean()))
+                .thenReturn(new GatewayRefundResult(PaymentStatus.APPROVED, "REF-6", null));
+
+        int done = refundService().refundPaidExpiredBookings();
+
+        assertThat(done).isEqualTo(1);
+        verify(gateway).refund(eq("MN-30-abc"), amountEq("3000.00"), eq(true));
+    }
+
+    @Test
+    void theSweepSkipsBookingsThatChangedOrWereAlreadyRefunded() {
+        approvedCharge();
+        when(repository.findExpiredBookingIdsWithUnrefundedCharge()).thenReturn(List.of(BOOKING_ID));
+
+        // Ya no está vencida (por ejemplo, otro proceso la cambió)
+        booking.setStatus(BookingStatus.CONFIRMED);
+        assertThat(refundService().refundPaidExpiredBookings()).isZero();
+
+        // Vencida pero ya reembolsada
+        booking.setStatus(BookingStatus.EXPIRED);
+        when(repository.existsByBookingIdAndTypeAndStatusIn(eq(BOOKING_ID), eq(PaymentType.REFUND), any()))
+                .thenReturn(true);
+        assertThat(refundService().refundPaidExpiredBookings()).isZero();
+
+        verify(gateway, never()).refund(anyString(), any(), anyBoolean());
+    }
+
     @Test
     void theBookingScreenExplainsWhenTheBookingCannotBeCancelled() {
         PaymentTransaction charge = approvedCharge();

@@ -72,4 +72,20 @@ public interface PaymentTransactionRepository extends JpaRepository<PaymentTrans
                                                  uy.edu.um.nexo.mnatural.entities.PaymentStatus.PENDING))
             """)
     List<Long> findBookingIdsWithFailedRefunds();
+
+    // Reservas EXPIRED con un cobro aprobado y sin reembolso hecho (aprobado o en proceso): se cobraron pero
+    // nunca se confirmaron, así que hay que devolver todo. Incluye las que ya tuvieron un reembolso fallido.
+    // Las CANCELLED no entran: una cancelada por el turista con 0 % de reembolso tiene un cobro que no se devuelve
+    @Query("""
+            select distinct t.booking.id from PaymentTransaction t
+            where t.type = uy.edu.um.nexo.mnatural.entities.PaymentType.CHARGE
+              and t.status = uy.edu.um.nexo.mnatural.entities.PaymentStatus.APPROVED
+              and t.booking.status = uy.edu.um.nexo.mnatural.entities.BookingStatus.EXPIRED
+              and not exists (select r from PaymentTransaction r
+                              where r.booking = t.booking
+                                and r.type = uy.edu.um.nexo.mnatural.entities.PaymentType.REFUND
+                                and r.status in (uy.edu.um.nexo.mnatural.entities.PaymentStatus.APPROVED,
+                                                 uy.edu.um.nexo.mnatural.entities.PaymentStatus.PENDING))
+            """)
+    List<Long> findExpiredBookingIdsWithUnrefundedCharge();
 }

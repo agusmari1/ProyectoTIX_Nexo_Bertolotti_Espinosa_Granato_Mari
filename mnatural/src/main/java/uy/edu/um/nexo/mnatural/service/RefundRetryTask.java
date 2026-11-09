@@ -19,11 +19,16 @@ public class RefundRetryTask {
         this.paymentService = paymentService;
     }
 
+    // También devuelve lo cobrado en reservas que vencieron sin confirmarse (PaymentService.refundPaidExpiredBookings)
     @Scheduled(fixedDelay = 600_000, initialDelay = 60_000)
     public void retryFailedRefunds() {
         int done = paymentService.retryFailedRefunds();
         if (done > 0) {
             log.info("Se completaron {} reembolsos que habían fallado", done);
+        }
+        int expired = paymentService.refundPaidExpiredBookings();
+        if (expired > 0) {
+            log.info("Se reembolsaron {} pagos de reservas que vencieron sin confirmarse", expired);
         }
     }
 }
