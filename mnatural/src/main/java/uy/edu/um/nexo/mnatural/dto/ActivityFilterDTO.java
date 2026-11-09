@@ -10,6 +10,8 @@ import java.time.LocalDate;
 // llegan como parámetros de la URL (por ejemplo /actividades?department=ROCHA&maxPrice=1000)
 public class ActivityFilterDTO {
 
+    // Palabra clave: se busca en el nombre, la descripción, la localidad y el emprendimiento
+    private String q;
     private Department department;
 
     private String locality;
@@ -28,8 +30,16 @@ public class ActivityFilterDTO {
     }
 
     public boolean isEmpty() {
-        return department == null && (locality == null || locality.isBlank()) && activityTypeId == null
-                && date == null && minPrice == null && maxPrice == null;
+        return (q == null || q.isBlank()) && department == null && (locality == null || locality.isBlank())
+                && activityTypeId == null && date == null && minPrice == null && maxPrice == null;
+    }
+
+    public String getQ() {
+        return q;
+    }
+
+    public void setQ(String q) {
+        this.q = q;
     }
 
     public Department getDepartment() {

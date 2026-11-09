@@ -1,5 +1,7 @@
 package uy.edu.um.nexo.mnatural.service;
 
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.Expression;
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.Root;
 import jakarta.persistence.criteria.Subquery;
@@ -18,10 +20,12 @@ import uy.edu.um.nexo.mnatural.entities.ScheduleStatus;
 import uy.edu.um.nexo.mnatural.repository.ActivityCatalogRepository;
 
 import java.math.BigDecimal;
+import java.text.Normalizer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 // Portal público de actividades (ESPECIFICACION.md, sección 2): listado con filtros y detalle
@@ -42,6 +46,9 @@ public class ActivityCatalogService {
         List<Specification<Activity>> conditions = new ArrayList<>();
         conditions.add(isPublished());
 
+        if (filter.getQ() != null && !filter.getQ().isBlank()) {
+            conditions.add(matchesKeyword(filter.getQ()));
+        }
         if (filter.getDepartment() != null) {
             conditions.add(inDepartment(filter.getDepartment()));
         }
@@ -73,6 +80,14 @@ public class ActivityCatalogService {
         return catalogRepository.findAll(Specification.allOf(conditions), Sort.by("name"));
     }
 
+    // Solo la palabra clave, sin otros filtros. Pensado para reutilizarlo desde la API pública
+    @Transactional(readOnly = true)
+    public List<Activity> searchByKeyword(String keyword) {
+        ActivityFilterDTO filter = new ActivityFilterDTO();
+        filter.setQ(keyword);
+        return search(filter);
+    }
+
     // Solo se puede ver el detalle de una actividad publicada
     @Transactional(readOnly = true)
     public Optional<Activity> findPublished(Long activityId) {
@@ -97,6 +112,29 @@ public class ActivityCatalogService {
 
     private static Specification<Activity> isPublished() {
         return (root, query, cb) -> cb.equal(root.get("status"), ActivityStatus.PUBLISHED);
+    }
+
+    // La palabra en el nombre, la descripción, la localidad o el nombre del emprendimiento, sin distinguir
+    // mayúsculas ni tildes: "PIRIAPOLIS" encuentra "Piriápolis"
+    public static Specification<Activity> matchesKeyword(String keyword) {
+        String text = withoutAccents(keyword.trim().toLowerCase(Locale.ROOT));
+        // La barra invertida escapa % y _ para que se busquen como texto y no como comodines
+        String pattern = "%" + text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%";
+        return (root, query, cb) -> cb.or(
+                cb.like(normalized(cb, root.get("name")), pattern, '\\'),
+                cb.like(normalized(cb, root.get("description")), pattern, '\\'),
+                cb.like(normalized(cb, root.get("locality")), pattern, '\\'),
+                cb.like(normalized(cb, root.get("business").get("name")), pattern, '\\'));
+    }
+
+    // En minúsculas y sin tildes, del lado de la base (translate existe en PostgreSQL y en H2)
+    private static Expression<String> normalized(CriteriaBuilder cb, Expression<String> column) {
+        return cb.function("translate", String.class, cb.lower(column),
+                cb.literal("áéíóúüñ"), cb.literal("aeiouun"));
+    }
+
+    private static String withoutAccents(String text) {
+        return Normalizer.normalize(text, Normalizer.Form.NFD).replaceAll("\\p{M}+", "");
     }
 
     private static Specification<Activity> inDepartment(Department department) {
