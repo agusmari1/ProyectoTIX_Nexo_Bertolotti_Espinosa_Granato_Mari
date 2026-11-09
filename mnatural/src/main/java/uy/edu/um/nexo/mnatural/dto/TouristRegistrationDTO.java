@@ -46,6 +46,10 @@ public class TouristRegistrationDTO {
 
     private String phoneNumber;
 
+    // Opcional: una condición excepcional a tener en cuenta (por ejemplo, muletas o silla de ruedas)
+    @Size(max = 500, message = "La observación no puede superar los 500 caracteres")
+    private String exceptionalCondition;
+
     public TouristRegistrationDTO() {
     }
 
@@ -127,5 +131,13 @@ public class TouristRegistrationDTO {
 
     public void setPhoneNumber(String phoneNumber) {
         this.phoneNumber = phoneNumber;
+    }
+
+    public String getExceptionalCondition() {
+        return exceptionalCondition;
+    }
+
+    public void setExceptionalCondition(String exceptionalCondition) {
+        this.exceptionalCondition = exceptionalCondition;
     }
 }
