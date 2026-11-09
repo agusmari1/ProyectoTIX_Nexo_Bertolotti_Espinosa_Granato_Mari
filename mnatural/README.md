@@ -62,6 +62,50 @@ Como esa dirección no es `https`, Mercado Pago no permite la vuelta automática
 | `CONT` | Pendiente |
 | `FUND` | Rechazado por fondos insuficientes |
 
+### Avisos de Mercado Pago (webhook)
+
+Además de consultar el resultado cuando el turista vuelve, Mercado Pago puede avisar solo con `POST /payments/webhook`
+(el `notification_url` que se manda al crear el pago). Así la reserva se confirma aunque el turista cierre la pestaña
+antes de volver.
+
+- El aviso solo trae el **id** del pago y **no se le cree**: con ese id se consulta el pago a Mercado Pago, de ahí sale
+  la referencia (`MN-...`) y el estado y el monto reales se vuelven a consultar antes de confirmar nada.
+- Es **idempotente**: Mercado Pago puede mandar el mismo aviso varias veces; un pago ya aprobado no se vuelve a tocar y
+  una reserva confirmada no se confirma dos veces.
+- Se contesta `200` si el aviso se entendió (aunque no sea de esta aplicación) y `500` si Mercado Pago no respondió o hubo un
+  error nuestro: así Mercado Pago lo reenvía. Si Mercado Pago no responde, nunca se confirma nada.
+- Solo se manda `notification_url` si `APP_BASE_URL` es `https`: Mercado Pago tiene que poder llegar a esa dirección
+  desde internet. Con `http://mnatural.localtest.me:8080` no hay avisos y se sigue usando la consulta al volver.
+- `/payments/webhook` es la única ruta de pagos que entra sin sesión ni token CSRF (regla en `SecurityConfig`).
+
+Para probarlo en la compu con **ngrok**:
+
+1. Instalá ngrok y corré `ngrok http 8080`. Copiá la dirección `https://....ngrok-free.app` que muestra (cambia cada vez).
+2. Arrancá la app con esa dirección (y entrá a la app siempre por ella):
+
+```powershell
+$env:PAYMENT_GATEWAY = "mercadopago"
+$env:MP_ACCESS_TOKEN = "<tu token de prueba>"
+$env:APP_BASE_URL    = "https://<tu-direccion>.ngrok-free.app"
+.\mvnw spring-boot:run
+```
+
+3. Pagá con una tarjeta de prueba. En la consola de ngrok (`http://127.0.0.1:4040`) se ve el `POST /payments/webhook`
+   que manda Mercado Pago, y en el log de la app, `Aviso de pago ... procesado`.
+
+Con una dirección `https` también se activa la vuelta automática (`auto_return`).
+
+### Pagos de reservas que ya vencieron
+
+Si el turista paga cuando la retención de la reserva ya terminó (por ejemplo, tardó en la página de pago), la reserva no
+se puede confirmar porque el cupo pudo quedar para otro. En ese caso **el dinero se devuelve solo**: se reembolsa el 100 %
+apenas se detecta (al volver el turista, al abrir la reserva o por aviso de Mercado Pago), y `RefundRetryTask` revisa cada
+10 minutos las reservas vencidas con un pago aprobado y sin reembolso, y reintenta los reembolsos que fallaron.
+Una reserva cancelada por el turista con una política sin reembolso **no** se devuelve: eso es lo que define la actividad.
+
+Si el turista reintenta con otra tarjeta dentro de la misma página de pago después de un rechazo, el intento `REJECTED` se
+vuelve a consultar y, si esa vez se aprobó, se toma como pagado.
+
 ### Estados
 
 Cómo se traduce el estado que informa Mercado Pago:

@@ -297,16 +297,19 @@ class PaymentServiceTest {
         return gateway;
     }
 
+    // APPROVED y ERROR son finales. REJECTED sí se vuelve a consultar (ver PaymentNotificationTest)
     @Test
     void aTransactionWithAFinalResultIsNotQueriedAgain() {
-        PaymentTransaction transaction = pendingTransaction();
-        transaction.setStatus(PaymentStatus.REJECTED);
-        PaymentGateway gateway = mock(PaymentGateway.class);
+        for (PaymentStatus finalStatus : new PaymentStatus[]{PaymentStatus.APPROVED, PaymentStatus.ERROR}) {
+            PaymentTransaction transaction = pendingTransaction();
+            transaction.setStatus(finalStatus);
+            PaymentGateway gateway = mock(PaymentGateway.class);
 
-        PaymentTransaction result = new PaymentService(repository, gateway).syncPayment(100L, TOURIST_ID);
+            PaymentTransaction result = new PaymentService(repository, gateway).syncPayment(100L, TOURIST_ID);
 
-        assertThat(result.getStatus()).isEqualTo(PaymentStatus.REJECTED);
-        verify(gateway, never()).getPaymentStatus(anyString());
+            assertThat(result.getStatus()).isEqualTo(finalStatus);
+            verify(gateway, never()).getPaymentStatus(anyString());
+        }
     }
 
     @Test

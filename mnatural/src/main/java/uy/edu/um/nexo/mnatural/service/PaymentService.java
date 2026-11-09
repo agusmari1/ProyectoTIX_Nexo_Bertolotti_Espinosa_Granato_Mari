@@ -31,6 +31,7 @@ import java.util.Optional;
 //   1. startPayment: registra el intento en PENDING y devuelve la URL donde paga el turista;
 //   2. syncPayment: cuando el turista vuelve, consulta el resultado y actualiza el intento.
 // También hace los reembolsos (refund): calcula cuánto se devuelve y lo pide al servicio de pagos.
+// El resultado también puede llegar por un aviso del servicio de pagos (syncByNotification), sin que vuelva el turista.
 // Este servicio nunca confirma ni cancela reservas: confirmar lo hace BookingConfirmationService
 // (solo con un pago APPROVED), cancelar BookingCancellationService y vencer las que no se pagaron
 // BookingExpirationTask
@@ -130,6 +131,46 @@ public class PaymentService {
         return sync(transaction, touristId);
     }
 
+    // Aviso (webhook) del servicio de pagos: actualiza el intento con esa referencia consultando el resultado real.
+    // No hay turista con sesión, así que no se verifica el dueño: la referencia sale de consultar el pago al servicio
+    // y no de lo que traiga el aviso. Es idempotente (un intento ya aprobado no se vuelve a tocar).
+    // Devuelve el id de la reserva, o vacío si la referencia no corresponde a ningún intento nuestro
+    @Transactional
+    public Optional<Long> syncByNotification(String externalReference) {
+        Optional<PaymentTransaction> found = paymentTransactionRepository.findByExternalReference(externalReference);
+        if (found.isEmpty()) {
+            log.warn("Aviso de pago con una referencia desconocida: {}", externalReference);
+            return Optional.empty();
+        }
+        PaymentTransaction transaction = found.get();
+        Long bookingId = transaction.getBooking().getId();
+        // Se bloquea la reserva, igual que al volver el turista, para no pisarse con otro pedido
+        paymentTransactionRepository.findBookingForUpdate(bookingId)
+                .orElseThrow(() -> new PaymentException("La reserva no existe."));
+        refreshStatus(transaction, LocalDateTime.now());
+        return Optional.of(bookingId);
+    }
+
+    // Una reserva VENCIDA con un pago aprobado (el turista pagó cuando la retención ya había terminado) no puede
+    // quedarse con el dinero: se reembolsa el 100 %. Si el servicio de pagos falla, el reembolso queda en ERROR y
+    // RefundRetryTask lo reintenta. Solo se aplica a reservas vencidas, que nunca se confirmaron: una reserva
+    // cancelada por el turista con una política sin reembolso también queda cobrada, y ahí no se devuelve nada.
+    // No hace nada si la reserva no está vencida, no tiene pago aprobado o ya tiene un reembolso.
+    // Devuelve true si pidió el reembolso
+    @Transactional
+    public boolean refundIfPaidButNotConfirmed(Long bookingId) {
+        Booking booking = paymentTransactionRepository.findBookingForUpdate(bookingId)
+                .orElseThrow(() -> new PaymentException("La reserva no existe."));
+        if (booking.getStatus() != BookingStatus.EXPIRED || !hasApprovedCharge(bookingId)
+                || paymentTransactionRepository.countByBookingIdAndType(bookingId, PaymentType.REFUND) > 0) {
+            return false;
+        }
+        PaymentTransaction charge = approvedCharge(bookingId).orElseThrow();
+        log.warn("La reserva {} está {} y tiene un pago aprobado: se reembolsa", bookingId, booking.getStatus());
+        requestRefund(booking, charge, charge.getAmount(), true);
+        return true;
+    }
+
     // Consulta los intentos que siguen en proceso. Lo usa la pantalla de la reserva: si el turista pagó pero
     // la vuelta desde la página de pago no funcionó (por ejemplo, sin auto_return en la compu local),
     // al entrar o recargar la pantalla se entera igual del resultado
@@ -225,9 +266,23 @@ public class PaymentService {
                 percentage.compareTo(FULL_REFUND_PERCENTAGE) == 0);
     }
 
-    // Reintenta los reembolsos que fallaron en reservas ya canceladas (por ejemplo, el prestador suspendió
-    // el horario mientras el servicio de pagos no respondía). Se pide el mismo monto que el intento anterior.
-    // Devuelve cuántos se completaron. Lo llama RefundRetryTask
+    // Red de seguridad: reembolsa las reservas vencidas que tienen un pago aprobado y ningún reembolso (por ejemplo,
+    // la reserva venció justo después de que el turista pagó y nadie volvió a mirarla). Lo llama RefundRetryTask.
+    // Devuelve cuántos reembolsos pidió
+    @Transactional
+    public int refundPaidExpiredBookings() {
+        int requested = 0;
+        for (Long bookingId : paymentTransactionRepository.findExpiredPaidBookingIdsWithoutRefund()) {
+            if (refundIfPaidButNotConfirmed(bookingId)) {
+                requested++;
+            }
+        }
+        return requested;
+    }
+
+    // Reintenta los reembolsos que fallaron en reservas ya canceladas o vencidas (por ejemplo, el prestador
+    // suspendió el horario, o se cobró una reserva vencida, mientras el servicio de pagos no respondía).
+    // Se pide el mismo monto que el intento anterior. Devuelve cuántos se completaron. Lo llama RefundRetryTask
     @Transactional
     public int retryFailedRefunds() {
         int done = 0;
@@ -306,8 +361,13 @@ public class PaymentService {
         return transaction;
     }
 
+    // Se consulta un intento PENDING y también uno REJECTED: dentro de la misma página de pago el turista puede
+    // reintentar después de un rechazo y que esta vez se apruebe, y ese pago tiene la misma referencia.
+    // APPROVED y ERROR son finales
     private void refreshStatus(PaymentTransaction transaction, LocalDateTime now) {
-        if (transaction.getStatus() != PaymentStatus.PENDING || transaction.getExternalReference() == null) {
+        boolean open = transaction.getStatus() == PaymentStatus.PENDING
+                || transaction.getStatus() == PaymentStatus.REJECTED;
+        if (!open || transaction.getExternalReference() == null) {
             return;
         }
         Booking booking = transaction.getBooking();
