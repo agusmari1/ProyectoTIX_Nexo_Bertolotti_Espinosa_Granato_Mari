@@ -54,7 +54,10 @@ public class SecurityConfig {
                         .requestMatchers("/prestador/**").hasRole(Role.PROVIDER.name())
                         // Espacio del prestador (actividades de Camila)
                         .requestMatchers("/provider/**").hasRole(Role.PROVIDER.name())
-                        .requestMatchers("/turista/**").hasRole(Role.TOURIST.name())
+                        // Flujo del turista: reservar, pagar, ver sus reservas y calificar. Si entra sin
+                        // sesión va al login y, al iniciarla, vuelve a la página que pidió
+                        .requestMatchers("/turista/**", "/reservar/**", "/payments/**", "/reviews/**")
+                        .hasRole(Role.TOURIST.name())
                         .anyRequest().authenticated())
                 // Formulario propio en /login (LoginController). Spring procesa el POST a /login
                 .formLogin(form -> form
