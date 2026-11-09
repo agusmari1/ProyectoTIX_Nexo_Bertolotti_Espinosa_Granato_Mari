@@ -1,0 +1,134 @@
+{
+  "info": {
+    "name": "Uruguay Mnatural - API pública",
+    "description": "API REST de solo lectura (ESPECIFICACION.md, sección 9). No requiere autenticación. Documentación: API.md y Swagger UI en {{baseUrl}}/swagger-ui.html. Cambiá la variable baseUrl si la app no corre en localhost:8080.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Listado de emprendimientos",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Accept", "value": "application/json" }],
+        "url": {
+          "raw": "{{baseUrl}}/api/businesses",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "businesses"]
+        },
+        "description": "Emprendimientos de prestadores aprobados, ordenados por nombre."
+      }
+    },
+    {
+      "name": "Verificar un emprendimiento",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Accept", "value": "application/json" }],
+        "url": {
+          "raw": "{{baseUrl}}/api/businesses/1/status",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "businesses", "1", "status"]
+        },
+        "description": "Si el emprendimiento existe y si su prestador está aprobado. Cambiá el 1 por el id a verificar."
+      }
+    },
+    {
+      "name": "Actividades disponibles en un día (departamento)",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Accept", "value": "application/json" }],
+        "url": {
+          "raw": "{{baseUrl}}/api/activities/available?date=2026-12-20&department=ROCHA",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "activities", "available"],
+          "query": [
+            { "key": "date", "value": "2026-12-20", "description": "Formato AAAA-MM-DD (obligatorio)" },
+            { "key": "department", "value": "ROCHA", "description": "Departamento en mayúsculas, por ejemplo RIO_NEGRO" }
+          ]
+        },
+        "description": "Actividades con horarios reservables y lugares libres ese día. Hace falta department o locality."
+      }
+    },
+    {
+      "name": "Actividades disponibles en un día (localidad)",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Accept", "value": "application/json" }],
+        "url": {
+          "raw": "{{baseUrl}}/api/activities/available?date=2026-12-20&locality=La%20Paloma",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "activities", "available"],
+          "query": [
+            { "key": "date", "value": "2026-12-20" },
+            { "key": "locality", "value": "La%20Paloma", "description": "Búsqueda parcial en la localidad" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Error: fecha inválida (400)",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Accept", "value": "application/json" }],
+        "url": {
+          "raw": "{{baseUrl}}/api/activities/available?date=20-12-2026&department=ROCHA",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "activities", "available"],
+          "query": [
+            { "key": "date", "value": "20-12-2026" },
+            { "key": "department", "value": "ROCHA" }
+          ]
+        },
+        "description": "Ejemplo de error: responde 400 con {\"error\": \"...\"}."
+      }
+    },
+    {
+      "name": "Top 3 del mes por departamento",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Accept", "value": "application/json" }],
+        "url": {
+          "raw": "{{baseUrl}}/api/activities/top?department=MALDONADO",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "activities", "top"],
+          "query": [
+            { "key": "department", "value": "MALDONADO", "description": "Obligatorio" }
+          ]
+        },
+        "description": "Las 3 actividades con mejor promedio de reseñas del mes en curso (desempate: cantidad de valoraciones). Puede devolver menos de 3."
+      }
+    },
+    {
+      "name": "Buscar actividades por palabra clave",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Accept", "value": "application/json" }],
+        "url": {
+          "raw": "{{baseUrl}}/api/activities/search?q=kayak",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "activities", "search"],
+          "query": [
+            { "key": "q", "value": "kayak", "description": "Obligatorio, hasta 100 caracteres" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Error: búsqueda sin palabra (400)",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Accept", "value": "application/json" }],
+        "url": {
+          "raw": "{{baseUrl}}/api/activities/search?q=",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "activities", "search"],
+          "query": [
+            { "key": "q", "value": "" }
+          ]
+        }
+      }
+    }
+  ]
+}

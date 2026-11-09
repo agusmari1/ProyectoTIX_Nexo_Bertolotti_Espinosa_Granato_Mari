@@ -17,6 +17,7 @@ import uy.edu.um.nexo.mnatural.dto.ApiBusinessDTO;
 import uy.edu.um.nexo.mnatural.dto.ApiBusinessStatusDTO;
 import uy.edu.um.nexo.mnatural.dto.ApiScheduleDTO;
 import uy.edu.um.nexo.mnatural.dto.ApiTopActivityDTO;
+import uy.edu.um.nexo.mnatural.dto.ReviewSummaryDTO;
 import uy.edu.um.nexo.mnatural.entities.Activity;
 import uy.edu.um.nexo.mnatural.entities.ActivitySchedule;
 import uy.edu.um.nexo.mnatural.entities.ActivityStatus;
@@ -33,6 +34,7 @@ import uy.edu.um.nexo.mnatural.repository.PublicApiRepository;
 import java.text.Normalizer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -49,15 +51,18 @@ public class PublicApiService {
     private final ActivityCatalogRepository catalogRepository;
     private final BusinessRepository businessRepository;
     private final BookingService bookingService;
+    private final ReviewService reviewService;
 
     public PublicApiService(PublicApiRepository apiRepository,
                             ActivityCatalogRepository catalogRepository,
                             BusinessRepository businessRepository,
-                            BookingService bookingService) {
+                            BookingService bookingService,
+                            ReviewService reviewService) {
         this.apiRepository = apiRepository;
         this.catalogRepository = catalogRepository;
         this.businessRepository = businessRepository;
         this.bookingService = bookingService;
+        this.reviewService = reviewService;
     }
 
     @Transactional(readOnly = true)
@@ -119,12 +124,18 @@ public class PublicApiService {
         return List.copyOf(result.values());
     }
 
-    // TODO: las reseñas (ESPECIFICACION.md, sección 5) todavía no existen. Cuando existan, devolver las
-    // 3 actividades publicadas del departamento con mejor promedio de las reseñas publicadas en el mes
-    // calendario en curso, desempatando por mayor cantidad de valoraciones
+    // Las 3 actividades publicadas del departamento con mejor promedio de las reseñas creadas en el mes
+    // calendario en curso, desempatando por mayor cantidad de valoraciones (ReviewService.findTopRated).
+    // Puede devolver menos de 3
     @Transactional(readOnly = true)
     public List<ApiTopActivityDTO> findTopOfMonth(Department department) {
-        return List.of();
+        List<ApiTopActivityDTO> top = new ArrayList<>();
+        for (ReviewSummaryDTO summary : reviewService.findTopRated(department, YearMonth.now())) {
+            catalogRepository.findByIdAndStatus(summary.activityId(), ActivityStatus.PUBLISHED)
+                    .ifPresent(activity -> top.add(new ApiTopActivityDTO(ApiActivityDTO.from(activity),
+                            summary.average(), summary.count())));
+        }
+        return top;
     }
 
     // Busca en el nombre, la descripción, la localidad y los tipos, sin distinguir mayúsculas ni tildes

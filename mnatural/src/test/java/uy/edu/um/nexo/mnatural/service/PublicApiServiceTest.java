@@ -6,8 +6,11 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import uy.edu.um.nexo.mnatural.dto.ApiAvailableActivityDTO;
 import uy.edu.um.nexo.mnatural.dto.ApiBusinessStatusDTO;
+import uy.edu.um.nexo.mnatural.dto.ApiTopActivityDTO;
+import uy.edu.um.nexo.mnatural.dto.ReviewSummaryDTO;
 import uy.edu.um.nexo.mnatural.entities.Activity;
 import uy.edu.um.nexo.mnatural.entities.ActivitySchedule;
+import uy.edu.um.nexo.mnatural.entities.ActivityStatus;
 import uy.edu.um.nexo.mnatural.entities.ApprovalStatus;
 import uy.edu.um.nexo.mnatural.entities.Business;
 import uy.edu.um.nexo.mnatural.entities.Department;
@@ -19,6 +22,7 @@ import uy.edu.um.nexo.mnatural.repository.PublicApiRepository;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.util.List;
 import java.util.Optional;
 
@@ -40,6 +44,7 @@ class PublicApiServiceTest {
     private ActivityCatalogRepository catalogRepository;
     private BusinessRepository businessRepository;
     private BookingService bookingService;
+    private ReviewService reviewService;
     private PublicApiService service;
 
     @BeforeEach
@@ -48,7 +53,9 @@ class PublicApiServiceTest {
         catalogRepository = mock(ActivityCatalogRepository.class);
         businessRepository = mock(BusinessRepository.class);
         bookingService = mock(BookingService.class);
-        service = new PublicApiService(apiRepository, catalogRepository, businessRepository, bookingService);
+        reviewService = mock(ReviewService.class);
+        service = new PublicApiService(apiRepository, catalogRepository, businessRepository, bookingService,
+                reviewService);
     }
 
     @Test
@@ -116,8 +123,24 @@ class PublicApiServiceTest {
     }
 
     @Test
-    void topIsEmptyUntilReviewsExist() {
+    void topIsEmptyWhenThereAreNoReviewsThisMonth() {
+        when(reviewService.findTopRated(Department.ROCHA, YearMonth.now())).thenReturn(List.of());
+
         assertThat(service.findTopOfMonth(Department.ROCHA)).isEmpty();
+    }
+
+    @Test
+    void topKeepsTheOrderOfTheRankingWithAverageAndCount() {
+        when(reviewService.findTopRated(Department.ROCHA, YearMonth.now())).thenReturn(List.of(
+                new ReviewSummaryDTO(11L, 5.0, 1L), new ReviewSummaryDTO(10L, 4.5, 2L)));
+        when(catalogRepository.findByIdAndStatus(11L, ActivityStatus.PUBLISHED)).thenReturn(Optional.of(activity(11L, 0)));
+        when(catalogRepository.findByIdAndStatus(10L, ActivityStatus.PUBLISHED)).thenReturn(Optional.of(activity(10L, 0)));
+
+        List<ApiTopActivityDTO> top = service.findTopOfMonth(Department.ROCHA);
+
+        assertThat(top).extracting(t -> t.activity().id()).containsExactly(11L, 10L);
+        assertThat(top.get(1).averageRating()).isEqualTo(4.5);
+        assertThat(top.get(1).ratingCount()).isEqualTo(2L);
     }
 
     @Test

@@ -95,6 +95,14 @@
 			<artifactId>spring-boot-starter-mail</artifactId>
 		</dependency>
 
+		<!-- Documentación de la API pública: Swagger UI en /swagger-ui.html y el JSON en /v3/api-docs.
+		     La serie 3.x de springdoc es la de Spring Boot 4 (3.2.0 está compilada contra Boot 4.1) -->
+		<dependency>
+			<groupId>org.springdoc</groupId>
+			<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+			<version>3.2.0</version>
+		</dependency>
+
 		<!-- ZXing: genera el código QR de las reservas confirmadas -->
 		<dependency>
 			<groupId>com.google.zxing</groupId>
