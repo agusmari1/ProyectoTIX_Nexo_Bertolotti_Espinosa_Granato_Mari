@@ -22,6 +22,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Supplier;
 
@@ -49,6 +50,8 @@ public class MercadoPagoPaymentGateway implements PaymentGateway {
     private final RestClient restClient;
     private final String returnUrl;
     private final boolean autoReturn;
+    // Adonde Mercado Pago avisa el resultado del pago (webhook). Solo con https; null si no se usa
+    private final String webhookUrl;
 
     // @Autowired: hay dos constructores y este es el que usa Spring (el otro es para los tests)
     @Autowired
@@ -78,6 +81,13 @@ public class MercadoPagoPaymentGateway implements PaymentGateway {
         if (!autoReturn) {
             log.info("APP_BASE_URL no es https: los pagos se crean sin auto_return, el turista vuelve con "
                     + "\"Volver al sitio\"");
+        }
+        // Mercado Pago tiene que poder llegar a la dirección del aviso desde internet: con la app local no sirve.
+        // Con una dirección pública https (por ejemplo, ngrok) se manda notification_url
+        this.webhookUrl = autoReturn ? base + "/payments/webhook" : null;
+        if (webhookUrl == null) {
+            log.info("APP_BASE_URL no es https: los pagos se crean sin notification_url (sin avisos de Mercado Pago). "
+                    + "El resultado se consulta cuando el turista vuelve. Para probar los avisos, usá ngrok");
         }
         this.restClient = builder
                 .baseUrl(API_URL)
@@ -114,6 +124,9 @@ public class MercadoPagoPaymentGateway implements PaymentGateway {
         if (autoReturn) {
             body.put("auto_return", "approved");
         }
+        if (webhookUrl != null) {
+            body.put("notification_url", webhookUrl);
+        }
         // El link de pago deja de servir cuando vence la retención de la reserva
         if (booking.getHeldUntil() != null) {
             body.put("expires", true);
@@ -133,6 +146,30 @@ public class MercadoPagoPaymentGateway implements PaymentGateway {
         log.info("Pago de Mercado Pago creado: reserva {}, {} {}, referencia {}",
                 booking.getId(), amount, CURRENCY, reference);
         return new PaymentCreation(reference, paymentUrl);
+    }
+
+    // GET /v1/payments/{id}: solo se usa para saber a qué pago nuestro corresponde un aviso (webhook).
+    // El estado y el monto no se toman de acá: después se consultan con getPaymentStatus.
+    // Si el pago no existe (404) o su referencia no es de esta aplicación, devuelve vacío
+    @Override
+    public Optional<String> findExternalReference(String paymentId) {
+        if (paymentId == null || !paymentId.matches("[0-9]{1,20}")) {
+            return Optional.empty();
+        }
+        Map<?, ?> payment;
+        try {
+            payment = call("consultar el aviso", () -> restClient.get()
+                    .uri("/v1/payments/{paymentId}", paymentId)
+                    .retrieve()
+                    .body(Map.class));
+        } catch (PaymentGatewayException e) {
+            if (e.getCause() instanceof RestClientResponseException cause && cause.getStatusCode().value() == 404) {
+                return Optional.empty();
+            }
+            throw e;
+        }
+        String reference = payment == null ? null : text(payment.get("external_reference"));
+        return reference != null && reference.startsWith("MN-") ? Optional.of(reference) : Optional.empty();
     }
 
     @Override

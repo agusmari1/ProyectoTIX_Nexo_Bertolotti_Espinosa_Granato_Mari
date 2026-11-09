@@ -56,7 +56,7 @@ public interface PaymentTransactionRepository extends JpaRepository<PaymentTrans
     List<Booking> findBookingsOfScheduleForUpdate(@Param("scheduleId") Long scheduleId,
                                                   @Param("statuses") Collection<BookingStatus> statuses);
 
-    // Reservas canceladas cuyo último reembolso falló y que todavía no tienen uno hecho (aprobado o en proceso):
+    // Reservas canceladas o vencidas cuyo último reembolso falló y que todavía no tienen uno hecho (aprobado o en proceso):
     // las reintenta RefundRetryTask. Una reserva que sigue CONFIRMED (el turista intentó cancelar y falló)
     // no entra: esa cancelación no se hizo y el turista la puede volver a pedir
     @Query("""
@@ -64,7 +64,8 @@ public interface PaymentTransactionRepository extends JpaRepository<PaymentTrans
             where t.type = uy.edu.um.nexo.mnatural.entities.PaymentType.REFUND
               and t.status in (uy.edu.um.nexo.mnatural.entities.PaymentStatus.ERROR,
                                uy.edu.um.nexo.mnatural.entities.PaymentStatus.REJECTED)
-              and t.booking.status = uy.edu.um.nexo.mnatural.entities.BookingStatus.CANCELLED
+              and t.booking.status in (uy.edu.um.nexo.mnatural.entities.BookingStatus.CANCELLED,
+                                       uy.edu.um.nexo.mnatural.entities.BookingStatus.EXPIRED)
               and not exists (select r from PaymentTransaction r
                               where r.booking = t.booking
                                 and r.type = uy.edu.um.nexo.mnatural.entities.PaymentType.REFUND
@@ -72,4 +73,17 @@ public interface PaymentTransactionRepository extends JpaRepository<PaymentTrans
                                                  uy.edu.um.nexo.mnatural.entities.PaymentStatus.PENDING))
             """)
     List<Long> findBookingIdsWithFailedRefunds();
+
+    // Reservas vencidas con un cobro aprobado y sin ningún reembolso (ni siquiera fallido: esos los reintenta
+    // findBookingIdsWithFailedRefunds). Se cobró una reserva que nunca se confirmó, así que hay que devolver el dinero
+    @Query("""
+            select distinct c.booking.id from PaymentTransaction c
+            where c.type = uy.edu.um.nexo.mnatural.entities.PaymentType.CHARGE
+              and c.status = uy.edu.um.nexo.mnatural.entities.PaymentStatus.APPROVED
+              and c.booking.status = uy.edu.um.nexo.mnatural.entities.BookingStatus.EXPIRED
+              and not exists (select r from PaymentTransaction r
+                              where r.booking = c.booking
+                                and r.type = uy.edu.um.nexo.mnatural.entities.PaymentType.REFUND)
+            """)
+    List<Long> findExpiredPaidBookingIdsWithoutRefund();
 }

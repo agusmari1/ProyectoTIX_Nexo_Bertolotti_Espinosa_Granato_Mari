@@ -22,9 +22,9 @@ import uy.edu.um.nexo.mnatural.exception.PaymentException;
 import uy.edu.um.nexo.mnatural.payment.PaymentStart;
 import uy.edu.um.nexo.mnatural.repository.UserRepository;
 import uy.edu.um.nexo.mnatural.service.BookingCancellationService;
-import uy.edu.um.nexo.mnatural.service.BookingConfirmationService;
 import uy.edu.um.nexo.mnatural.service.CancellationResult;
 import uy.edu.um.nexo.mnatural.service.BookingQrService;
+import uy.edu.um.nexo.mnatural.service.PaymentConfirmationService;
 import uy.edu.um.nexo.mnatural.service.PaymentService;
 
 // Pago de una reserva del turista logueado:
@@ -42,18 +42,18 @@ public class PaymentController {
     private static final String ERROR_VIEW = "payments/error";
 
     private final PaymentService paymentService;
-    private final BookingConfirmationService bookingConfirmationService;
+    private final PaymentConfirmationService paymentConfirmationService;
     private final BookingCancellationService bookingCancellationService;
     private final BookingQrService qrService;
     private final UserRepository userRepository;
 
     public PaymentController(PaymentService paymentService,
-                             BookingConfirmationService bookingConfirmationService,
+                             PaymentConfirmationService paymentConfirmationService,
                              BookingCancellationService bookingCancellationService,
                              BookingQrService qrService,
                              UserRepository userRepository) {
         this.paymentService = paymentService;
-        this.bookingConfirmationService = bookingConfirmationService;
+        this.paymentConfirmationService = paymentConfirmationService;
         this.bookingCancellationService = bookingCancellationService;
         this.qrService = qrService;
         this.userRepository = userRepository;
@@ -66,10 +66,10 @@ public class PaymentController {
         paymentService.syncPendingPayments(bookingId, touristId);
         BookingPaymentDTO payment = paymentService.getBookingPayment(bookingId, touristId);
         // Si el pago se aprobó pero la confirmación no llegó a hacerse (por ejemplo, se cortó la conexión
-        // al volver de la página de pago), se completa ahora
-        boolean paidButPending = payment.getStatus() == BookingStatus.PENDING && payment.getAttempts().stream()
-                .anyMatch(attempt -> attempt.getStatus() == PaymentStatus.APPROVED);
-        if (paidButPending && bookingConfirmationService.confirmIfPaid(bookingId)) {
+        // al volver de la página de pago), se completa ahora. Si la reserva ya venció, se devuelve el dinero
+        boolean paid = payment.getAttempts().stream().anyMatch(attempt -> attempt.getStatus() == PaymentStatus.APPROVED);
+        boolean unresolved = payment.getStatus() == BookingStatus.PENDING || payment.getStatus() == BookingStatus.EXPIRED;
+        if (paid && unresolved && paymentConfirmationService.confirmOrRefund(bookingId) != PaymentConfirmationService.Outcome.NOT_PAID) {
             payment = paymentService.getBookingPayment(bookingId, touristId);
         }
         model.addAttribute("payment", payment);
@@ -125,7 +125,7 @@ public class PaymentController {
         Long bookingId = transaction.getBooking().getId();
 
         if (transaction.getStatus() == PaymentStatus.APPROVED) {
-            if (bookingConfirmationService.confirmIfPaid(bookingId)) {
+            if (paymentConfirmationService.confirmOrRefund(bookingId) == PaymentConfirmationService.Outcome.CONFIRMED) {
                 redirectAttributes.addFlashAttribute("successMessage", "¡Pago aprobado! Tu reserva está confirmada.");
             } else {
                 redirectAttributes.addFlashAttribute("errorMessage", "Recibimos tu pago, pero la reserva ya había "

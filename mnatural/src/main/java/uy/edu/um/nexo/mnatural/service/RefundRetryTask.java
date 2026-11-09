@@ -5,9 +5,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-// Cada 10 minutos reintenta los reembolsos que fallaron en reservas ya canceladas (por ejemplo, el prestador
-// suspendió un horario mientras el servicio de pagos no respondía). La especificación pide reintentarlo
-// hasta que se complete (ESPECIFICACION.md, sección 3)
+// Cada 10 minutos reintenta los reembolsos que fallaron en reservas ya canceladas o vencidas (por ejemplo, el
+// prestador suspendió un horario mientras el servicio de pagos no respondía) y reembolsa las reservas vencidas que
+// quedaron con un pago aprobado. La especificación pide reintentarlo hasta que se complete (ESPECIFICACION.md,
+// sección 3)
 @Component
 public class RefundRetryTask {
 
@@ -24,6 +25,10 @@ public class RefundRetryTask {
         int done = paymentService.retryFailedRefunds();
         if (done > 0) {
             log.info("Se completaron {} reembolsos que habían fallado", done);
+        }
+        int expired = paymentService.refundPaidExpiredBookings();
+        if (expired > 0) {
+            log.info("Se pidió el reembolso de {} reservas vencidas que tenían un pago aprobado", expired);
         }
     }
 }

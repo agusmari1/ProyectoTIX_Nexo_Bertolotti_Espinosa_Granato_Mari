@@ -8,7 +8,7 @@
     Si no hay pronóstico (servicio caído, fechas fuera de rango) no se muestra nada: WeatherService nunca lanza errores
 */-->
 <th:block th:fragment="forecast(department, startTimes)">
-    <th:block th:with="days=${@weatherService.forecastsFor(department, startTimes)}">
+    <th:block th:with="days=${weather?.forecastsFor(department, startTimes)}">
         <div class="card mb-4" th:if="${!#lists.isEmpty(days)}">
             <div class="card-header">Pronóstico del tiempo</div>
             <div class="card-body">

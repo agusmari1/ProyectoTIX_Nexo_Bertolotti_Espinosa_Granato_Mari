@@ -54,11 +54,16 @@ public class SecurityConfig {
                         .requestMatchers("/prestador/**").hasRole(Role.PROVIDER.name())
                         // Espacio del prestador (actividades de Camila)
                         .requestMatchers("/provider/**").hasRole(Role.PROVIDER.name())
+                        // Aviso de Mercado Pago (webhook): lo llama Mercado Pago, sin sesión. No se le cree nada del
+                        // aviso: PaymentWebhookService consulta el pago al servicio. Va antes de /payments/**
+                        .requestMatchers(HttpMethod.POST, "/payments/webhook").permitAll()
                         // Flujo del turista: reservar, pagar, ver sus reservas y calificar. Si entra sin
                         // sesión va al login y, al iniciarla, vuelve a la página que pidió
                         .requestMatchers("/turista/**", "/reservar/**", "/payments/**", "/reviews/**")
                         .hasRole(Role.TOURIST.name())
                         .anyRequest().authenticated())
+                // El webhook no viene de un formulario de la aplicación, así que no lleva el token CSRF
+                .csrf(csrf -> csrf.ignoringRequestMatchers("/payments/webhook"))
                 // Formulario propio en /login (LoginController). Spring procesa el POST a /login
                 .formLogin(form -> form
                         .loginPage("/login")
