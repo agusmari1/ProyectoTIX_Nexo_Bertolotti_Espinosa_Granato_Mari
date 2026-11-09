@@ -11,10 +11,7 @@
     <div class="container">
         <a th:href="@{/}" class="brand"><span class="brand-mark"></span>Uruguay Mnatural</a>
         <nav class="site-nav">
-            <th:block th:if="${currentUser == null}">
-                <a th:href="@{/registro/turista}">Registrarse</a>
-                <a th:href="@{/login}" class="nav-cta">Iniciar sesión</a>
-            </th:block>
+            <a th:if="${currentUser == null}" th:href="@{/login}" class="nav-cta">Iniciar sesión</a>
 
             <details class="user-menu" th:if="${currentUser != null}">
                 <summary class="user-menu-button" aria-label="Menú de usuario">
