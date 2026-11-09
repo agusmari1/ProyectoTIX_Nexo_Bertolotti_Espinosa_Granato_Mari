@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<!--/*
+    Encabezado de todas las páginas. Se usa con:
+    <header th:replace="~{fragments/header :: header}"></header>
+    currentUser lo agrega CurrentUserAdvice. Sin sesión es null.
+*/-->
+<header class="site-header" th:fragment="header">
+    <div class="container">
+        <a th:href="@{/}" class="brand"><span class="brand-mark"></span>Uruguay Mnatural</a>
+        <nav class="site-nav">
+            <th:block th:if="${currentUser == null}">
+                <a th:href="@{/registro/turista}">Registrarse</a>
+                <a th:href="@{/login}" class="nav-cta">Iniciar sesión</a>
+            </th:block>
+
+            <details class="user-menu" th:if="${currentUser != null}">
+                <summary class="user-menu-button" aria-label="Menú de usuario">
+                    <span class="user-avatar" aria-hidden="true" th:text="${currentUser.initial}">A</span>
+                    <span class="user-name" th:text="${currentUser.displayName}">Nombre</span>
+                </summary>
+
+                <div class="user-menu-panel">
+                    <a th:href="@{/perfil}">Mi perfil</a>
+
+                    <th:block th:if="${currentUser.tourist}">
+                        <a th:href="@{/turista/reservas}">Mis reservas</a>
+                        <a th:href="@{/actividades}">Ver actividades</a>
+                    </th:block>
+
+                    <th:block th:if="${currentUser.provider}">
+                        <a th:href="@{/provider/businesses}">Mi emprendimiento</a>
+                        <a th:href="@{/provider/activities}">Mis actividades</a>
+                        <a th:href="@{/provider/reservations}">Reservas recibidas</a>
+                        <a th:href="@{/provider/verificar}">Verificar código</a>
+                    </th:block>
+
+                    <th:block th:if="${currentUser.admin}">
+                        <a th:href="@{/admin/prestadores}">Prestadores pendientes</a>
+                        <a th:href="@{/admin/tipos-actividad}">Tipos de actividad</a>
+                        <a th:href="@{/admin/administradores}">Agregar admin</a>
+                    </th:block>
+
+                    <a th:href="@{/cuenta/contrasena}">Cambiar contraseña</a>
+
+                    <form th:action="@{/logout}" method="post">
+                        <button type="submit">Cerrar sesión</button>
+                    </form>
+                </div>
+            </details>
+        </nav>
+    </div>
+    <script th:src="@{/js/user-menu.js}" defer></script>
+</header>
+
+</body>
+</html>

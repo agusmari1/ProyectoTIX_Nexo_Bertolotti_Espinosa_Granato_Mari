@@ -102,6 +102,14 @@ class SecurityConfigTest {
     }
 
     @Test
+    void profileIsForAnyoneWithASession() throws Exception {
+        expect(null, new String[]{"/perfil"}, redirectedUrl("/login"));
+        for (Role role : Role.values()) {
+            expect(role, new String[]{"/perfil"}, status().isOk());
+        }
+    }
+
+    @Test
     void apiIsPublicOnlyForGet() throws Exception {
         mockMvc.perform(get("/api/businesses")).andExpect(status().isOk());
         mockMvc.perform(post("/api/businesses")).andExpect(status().isForbidden());

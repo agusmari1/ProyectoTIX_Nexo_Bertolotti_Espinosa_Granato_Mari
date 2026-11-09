@@ -9,11 +9,7 @@
 </head>
 <body>
 
-<header class="site-header">
-    <div class="container">
-        <a th:href="@{/}" class="brand"><span class="brand-mark"></span>Uruguay Mnatural</a>
-    </div>
-</header>
+<header th:replace="~{fragments/header :: header}"></header>
 
 <main class="page page-flat container page-wide">
     <div class="alert alert-danger" th:text="${errorMessage}">No se pudo procesar el pago.</div>
