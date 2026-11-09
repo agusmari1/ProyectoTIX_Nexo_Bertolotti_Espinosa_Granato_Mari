@@ -27,6 +27,7 @@ import uy.edu.um.nexo.mnatural.entities.Department;
 import uy.edu.um.nexo.mnatural.exception.ActivityNotFoundException;
 import uy.edu.um.nexo.mnatural.exception.ActivityValidationException;
 import uy.edu.um.nexo.mnatural.service.ActivityService;
+import uy.edu.um.nexo.mnatural.service.SuspensionResult;
 
 import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
@@ -155,6 +156,27 @@ public class ActivityController {
         }
         addScheduleData(activityId, authentication, model);
         return SCHEDULES_VIEW;
+    }
+
+    // Suspender un horario cancela sus reservas y reembolsa el 100 % de lo pagado
+    @PostMapping("/{id}/schedules/{scheduleId}/suspend")
+    public String suspendSchedule(@PathVariable("id") Long activityId,
+                                  @PathVariable("scheduleId") Long scheduleId,
+                                  Authentication authentication,
+                                  RedirectAttributes redirectAttributes) {
+        try {
+            SuspensionResult result = activityService.suspendSchedule(authentication.getName(), activityId, scheduleId);
+            String message = "Suspendiste el horario. Se cancelaron " + result.cancelledBookings()
+                    + " reservas y se reembolsó el 100 % de " + result.refunded() + " pagos.";
+            if (result.failedRefunds() > 0) {
+                message += " " + result.failedRefunds() + " reembolsos no se pudieron hacer ahora por un problema "
+                        + "con el servicio de pagos: se reintentan automáticamente.";
+            }
+            redirectAttributes.addFlashAttribute("successMessage", message);
+        } catch (ActivityValidationException e) {
+            redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
+        }
+        return "redirect:/provider/activities/" + activityId + "/schedules";
     }
 
     // Actividad inexistente o de otro prestador: vuelve a "mis actividades" con un aviso

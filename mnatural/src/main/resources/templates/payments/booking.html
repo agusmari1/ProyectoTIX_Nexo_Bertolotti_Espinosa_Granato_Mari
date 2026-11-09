@@ -84,6 +84,59 @@
         </div>
     </div>
 
+    <!-- Confirmada: cancelar según la política de cancelación del prestador -->
+    <div class="card mb-4" th:if="${payment.cancellable}">
+        <div class="card-header">Cancelar la reserva</div>
+        <div class="card-body">
+            <p class="mb-0 text-muted" th:if="${payment.cancellationBlockedReason}"
+               th:text="${payment.cancellationBlockedReason}"></p>
+            <th:block th:unless="${payment.cancellationBlockedReason}">
+                <p th:if="${payment.refundIfCancelled.signum() > 0}">
+                    Si cancelás ahora se te devuelven
+                    <strong th:text="'$ ' + ${#numbers.formatDecimal(payment.refundIfCancelled, 1, 'POINT', 2, 'COMMA')}"></strong>
+                    por el mismo medio de pago, y los lugares se liberan.
+                </p>
+                <p th:unless="${payment.refundIfCancelled.signum() > 0}">
+                    Podés cancelar, pero según la política de la actividad no corresponde reembolso.
+                </p>
+                <form th:action="@{/payments/bookings/{id}/cancel(id=${payment.bookingId})}" method="post"
+                      onsubmit="return confirm('¿Seguro que querés cancelar la reserva? No se puede deshacer.');">
+                    <button type="submit" class="btn btn-outline-danger">Cancelar reserva</button>
+                </form>
+            </th:block>
+        </div>
+    </div>
+
+    <!-- Reembolsos -->
+    <div class="card mb-4" th:unless="${#lists.isEmpty(payment.refunds)}">
+        <div class="card-header">Reembolsos</div>
+        <div class="table-responsive">
+            <table class="table mb-0">
+                <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Monto</th>
+                    <th>Resultado</th>
+                    <th>Detalle</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="refund : ${payment.refunds}">
+                    <td th:text="${#temporals.format(refund.createdAt, 'dd/MM/yyyy HH:mm')}"></td>
+                    <td th:text="'$ ' + ${#numbers.formatDecimal(refund.amount, 1, 'POINT', 2, 'COMMA')}"></td>
+                    <td th:switch="${refund.status.name()}">
+                        <span th:case="'APPROVED'">Reembolsado</span>
+                        <span th:case="'PENDING'">En proceso</span>
+                        <span th:case="'REJECTED'">Rechazado</span>
+                        <span th:case="'ERROR'">Error</span>
+                    </td>
+                    <td th:text="${refund.failureReason} ?: ''"></td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
     <!-- Intentos de pago -->
     <div class="card" th:unless="${#lists.isEmpty(payment.attempts)}">
         <div class="card-header">Intentos de pago</div>

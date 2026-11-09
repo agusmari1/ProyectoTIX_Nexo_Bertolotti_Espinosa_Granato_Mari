@@ -8,7 +8,8 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
-// Lo que ve el turista en la pantalla de pago de su reserva: el resumen, los intentos y si puede pagar
+// Lo que ve el turista en la pantalla de pago de su reserva: el resumen, los intentos, si puede pagar
+// y, si está confirmada, si la puede cancelar y cuánto se le devolvería
 public class BookingPaymentDTO {
 
     private final Long bookingId;
@@ -21,8 +22,16 @@ public class BookingPaymentDTO {
     private final LocalDateTime heldUntil;
     private final List<PaymentTransaction> attempts;
     private final boolean payable;
+    private final List<PaymentTransaction> refunds;
+    private final boolean cancellable;
+    // Por qué no se puede cancelar según la política del prestador (null si se puede)
+    private final String cancellationBlockedReason;
+    // Lo que se le devolvería si cancela ahora (null si no puede cancelar)
+    private final BigDecimal refundIfCancelled;
 
-    public BookingPaymentDTO(Booking booking, List<PaymentTransaction> attempts, boolean payable) {
+    public BookingPaymentDTO(Booking booking, List<PaymentTransaction> attempts, boolean payable,
+                             List<PaymentTransaction> refunds, boolean cancellable,
+                             String cancellationBlockedReason, BigDecimal refundIfCancelled) {
         this.bookingId = booking.getId();
         this.activityName = booking.getActivitySchedule().getActivity().getName();
         this.startDateTime = booking.getActivitySchedule().getStartDateTime();
@@ -34,6 +43,10 @@ public class BookingPaymentDTO {
         this.heldUntil = booking.getHeldUntil();
         this.attempts = attempts;
         this.payable = payable;
+        this.refunds = refunds;
+        this.cancellable = cancellable;
+        this.cancellationBlockedReason = cancellationBlockedReason;
+        this.refundIfCancelled = refundIfCancelled;
     }
 
     public Long getBookingId() {
@@ -74,5 +87,21 @@ public class BookingPaymentDTO {
 
     public boolean isPayable() {
         return payable;
+    }
+
+    public List<PaymentTransaction> getRefunds() {
+        return refunds;
+    }
+
+    public boolean isCancellable() {
+        return cancellable;
+    }
+
+    public String getCancellationBlockedReason() {
+        return cancellationBlockedReason;
+    }
+
+    public BigDecimal getRefundIfCancelled() {
+        return refundIfCancelled;
     }
 }

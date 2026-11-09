@@ -28,6 +28,7 @@ import java.util.function.Supplier;
 // Mercado Pago Checkout Pro (documentación de Uruguay, www.mercadopago.com.uy/developers):
 //   createPayment:     POST /checkout/preferences  -> devuelve init_point, la página donde paga el turista
 //   getPaymentStatus:  GET  /v1/payments/search?external_reference=...
+//   refund:            POST /v1/payments/{payment_id}/refunds  (con "amount" si es parcial)
 // Se activa con payment.gateway=mercadopago (variable de entorno PAYMENT_GATEWAY=mercadopago).
 // El Access Token se lee de la variable de entorno MP_ACCESS_TOKEN: nunca va en el código ni en el repo,
 // y nunca se escribe en el log.
@@ -136,20 +137,7 @@ public class MercadoPagoPaymentGateway implements PaymentGateway {
 
     @Override
     public GatewayPaymentStatus getPaymentStatus(String externalReference) {
-        Map<?, ?> response = call("consultar el pago", () -> restClient.get()
-                .uri(uri -> uri.path("/v1/payments/search")
-                        .queryParam("external_reference", externalReference)
-                        .queryParam("sort", "date_created")
-                        .queryParam("criteria", "desc")
-                        .queryParam("range", "date_created")
-                        .queryParam("begin_date", "NOW-30DAYS")
-                        .queryParam("end_date", "NOW")
-                        .build())
-                .retrieve()
-                .body(Map.class));
-        if (response == null || !(response.get("results") instanceof List<?> results)) {
-            throw new PaymentGatewayException("Respuesta inesperada de Mercado Pago al consultar el pago");
-        }
+        List<?> results = searchPayments(externalReference);
         // Sin resultados: el turista todavía no pagó (por ejemplo, cerró la página de pago)
         if (results.isEmpty()) {
             return new GatewayPaymentStatus(PaymentStatus.PENDING, null, null,
@@ -173,6 +161,100 @@ public class MercadoPagoPaymentGateway implements PaymentGateway {
             throw new PaymentGatewayException("Respuesta inesperada de Mercado Pago al consultar el pago");
         }
         return toStatus(chosen);
+    }
+
+    // POST /v1/payments/{payment_id}/refunds. Sin cuerpo devuelve el total; con "amount", solo ese monto.
+    // Nuestra referencia no es el id de Mercado Pago, así que primero se busca el pago aprobado.
+    // Si el pago ya tiene reembolsado al menos lo que se pide (por ejemplo, el pedido anterior llegó a
+    // Mercado Pago pero se cortó la respuesta), no se manda otro: así un reintento nunca devuelve dos veces
+    @Override
+    public GatewayRefundResult refund(String chargeExternalReference, BigDecimal amount, boolean fullRefund) {
+        Map<?, ?> payment = null;
+        for (Object result : searchPayments(chargeExternalReference)) {
+            if (!(result instanceof Map<?, ?> candidate)) {
+                continue;
+            }
+            Object status = candidate.get("status");
+            if ("approved".equals(status)) {
+                payment = candidate;
+                break;
+            }
+            // Un pago ya devuelto entero figura como refunded
+            if ("refunded".equals(status)) {
+                log.info("El pago {} ya figura reembolsado en Mercado Pago", chargeExternalReference);
+                return new GatewayRefundResult(PaymentStatus.APPROVED, null, null);
+            }
+        }
+        if (payment == null || payment.get("id") == null) {
+            throw new PaymentGatewayException("No se encontró en Mercado Pago un pago aprobado para reembolsar");
+        }
+        String paymentId = text(payment.get("id"));
+        BigDecimal charged = decimal(payment.get("transaction_amount"));
+        BigDecimal alreadyRefunded = decimal(payment.get("transaction_amount_refunded"));
+        BigDecimal requested = fullRefund && charged != null ? charged : amount;
+        if (alreadyRefunded != null && alreadyRefunded.compareTo(requested) >= 0) {
+            log.info("El pago {} ya tiene reembolsados {} {}: no se pide otro reembolso",
+                    paymentId, alreadyRefunded, CURRENCY);
+            return new GatewayRefundResult(PaymentStatus.APPROVED, null, null);
+        }
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        if (!fullRefund) {
+            body.put("amount", amount);
+        }
+        Map<?, ?> response = call("reembolsar el pago", () -> restClient.post()
+                .uri("/v1/payments/{paymentId}/refunds", paymentId)
+                // Mercado Pago pide una clave única por pedido para no procesarlo dos veces
+                .header("X-Idempotency-Key", UUID.randomUUID().toString())
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(body)
+                .retrieve()
+                .body(Map.class));
+        if (response == null) {
+            throw new PaymentGatewayException("Respuesta inesperada de Mercado Pago al reembolsar el pago");
+        }
+        GatewayRefundResult result = toRefundResult(response);
+        log.info("Reembolso de Mercado Pago del pago {}: {} {} ({}), estado {}", paymentId, requested, CURRENCY,
+                fullRefund ? "total" : "parcial", result.status());
+        return result;
+    }
+
+    // Estados de un reembolso según la documentación: approved, in_process, rejected, cancelled
+    static GatewayRefundResult toRefundResult(Map<?, ?> refund) {
+        String status = text(refund.get("status"));
+        String refundId = text(refund.get("id"));
+        return switch (status == null ? "" : status) {
+            case "approved" -> new GatewayRefundResult(PaymentStatus.APPROVED, refundId, null);
+            case "in_process", "pending" -> new GatewayRefundResult(PaymentStatus.PENDING, refundId,
+                    "El reembolso está en proceso.");
+            case "rejected", "cancelled" -> new GatewayRefundResult(PaymentStatus.REJECTED, refundId,
+                    "Mercado Pago no aprobó el reembolso.");
+            default -> new GatewayRefundResult(PaymentStatus.ERROR, refundId,
+                    "Mercado Pago informó un estado inesperado del reembolso (" + status + ").");
+        };
+    }
+
+    // GET /v1/payments/search: los pagos con nuestra referencia, del más nuevo al más viejo
+    private List<?> searchPayments(String externalReference) {
+        Map<?, ?> response = call("consultar el pago", () -> restClient.get()
+                .uri(uri -> uri.path("/v1/payments/search")
+                        .queryParam("external_reference", externalReference)
+                        .queryParam("sort", "date_created")
+                        .queryParam("criteria", "desc")
+                        .queryParam("range", "date_created")
+                        .queryParam("begin_date", "NOW-30DAYS")
+                        .queryParam("end_date", "NOW")
+                        .build())
+                .retrieve()
+                .body(Map.class));
+        if (response == null || !(response.get("results") instanceof List<?> results)) {
+            throw new PaymentGatewayException("Respuesta inesperada de Mercado Pago al consultar el pago");
+        }
+        return results;
+    }
+
+    private static BigDecimal decimal(Object value) {
+        return value == null ? null : new BigDecimal(String.valueOf(value));
     }
 
     // Traduce un pago de Mercado Pago a nuestros estados. Valores de status según la documentación
