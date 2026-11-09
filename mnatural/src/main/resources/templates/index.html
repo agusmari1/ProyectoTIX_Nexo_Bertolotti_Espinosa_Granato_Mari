@@ -16,6 +16,7 @@
             <!-- Visitante: iniciar sesión. Con la sesión iniciada: su panel (si tiene) y cerrar sesión -->
             <a th:if="${loggedInAs == null}" th:href="@{/login}" class="nav-cta">Iniciar sesión</a>
             <a th:if="${loggedInAs != null and panelUrl != null}" th:href="@{${panelUrl}}">Mi panel</a>
+            <a th:if="${tourist}" th:href="@{/turista/reservas}">Mis reservas</a>
             <form th:if="${loggedInAs != null}" th:action="@{/logout}" method="post">
                 <button type="submit" class="nav-button">Cerrar sesión</button>
             </form>
@@ -61,6 +62,10 @@
                 <div class="d-grid gap-3">
                     <a th:if="${panelUrl != null}" th:href="@{${panelUrl}}" class="btn btn-success btn-lg">
                         Ir a mi panel
+                    </a>
+
+                    <a th:if="${tourist}" th:href="@{/turista/reservas}" class="btn btn-success btn-lg">
+                        Mis reservas
                     </a>
 
                     <a th:href="@{/actividades}" class="btn btn-outline-success btn-lg">

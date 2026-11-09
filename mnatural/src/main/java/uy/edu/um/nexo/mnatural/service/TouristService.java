@@ -5,12 +5,24 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import uy.edu.um.nexo.mnatural.dto.TouristRegistrationDTO;
 import uy.edu.um.nexo.mnatural.entities.Tourist;
+import uy.edu.um.nexo.mnatural.exception.BookingException;
 import uy.edu.um.nexo.mnatural.exception.EmailAlreadyRegisteredException;
 import uy.edu.um.nexo.mnatural.repository.TouristRepository;
 import uy.edu.um.nexo.mnatural.repository.UserRepository;
 
+import java.text.Normalizer;
+import java.util.Set;
+
 @Service
 public class TouristService {
+
+    // En minúsculas y sin tildes. Incluye los nombres en inglés de los que se escriben distinto
+    private static final Set<String> SPANISH_SPEAKING_COUNTRIES = Set.of(
+            "argentina", "bolivia", "chile", "colombia", "costa rica", "cuba", "ecuador", "el salvador",
+            "espana", "spain", "guatemala", "guinea ecuatorial", "equatorial guinea", "honduras", "mexico",
+            "nicaragua", "panama", "paraguay", "peru", "puerto rico", "republica dominicana",
+            "dominican republic", "uruguay", "venezuela");
+    private static final Set<String> PORTUGUESE_SPEAKING_COUNTRIES = Set.of("brasil", "brazil", "portugal");
 
     private final UserRepository userRepository;
     private final TouristRepository touristRepository;
@@ -43,8 +55,29 @@ public class TouristService {
         tourist.setEmail(email);
         tourist.setPasswordHash(passwordEncoder.encode(dto.getPassword()));
         tourist.setPhoneNumber(blankToNull(dto.getPhoneNumber()));
-        // TODO: asignar el idioma según el país (ESPECIFICACION.md, sección 1). Por ahora queda en null
+        tourist.setExceptionalCondition(blankToNull(dto.getExceptionalCondition()));
+        tourist.setLanguage(languageFor(tourist.getCountry()));
         return touristRepository.save(tourist);
+    }
+
+    // El turista logueado. Solo los turistas pueden reservar
+    @Transactional(readOnly = true)
+    public Tourist getByEmail(String email) {
+        return userRepository.findByEmail(email)
+                .filter(Tourist.class::isInstance)
+                .map(Tourist.class::cast)
+                .orElseThrow(() -> new BookingException("Solo los turistas pueden hacer reservas."));
+    }
+
+    // Idioma según el país (ESPECIFICACION.md, sección 1). El país se escribe a mano,
+    // así que se compara sin mayúsculas ni tildes. El idioma por defecto es el inglés
+    private String languageFor(String country) {
+        String normalized = Normalizer.normalize(country.trim().toLowerCase(), Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "");
+        if (SPANISH_SPEAKING_COUNTRIES.contains(normalized)) {
+            return "es";
+        }
+        return PORTUGUESE_SPEAKING_COUNTRIES.contains(normalized) ? "pt" : "en";
     }
 
     private String blankToNull(String value) {

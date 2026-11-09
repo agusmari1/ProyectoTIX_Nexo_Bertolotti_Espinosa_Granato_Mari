@@ -81,6 +81,13 @@
                     <input type="tel" id="phoneNumber" class="form-control" th:field="*{phoneNumber}" th:errorclass="is-invalid">
                     <div class="invalid-feedback" th:errors="*{phoneNumber}"></div>
                 </div>
+
+                <div class="col-12">
+                    <label for="exceptionalCondition" class="form-label">Observación sobre una condición excepcional <span class="text-muted fw-normal">(opcional)</span></label>
+                    <textarea id="exceptionalCondition" rows="2" class="form-control" th:field="*{exceptionalCondition}" th:errorclass="is-invalid"></textarea>
+                    <div class="invalid-feedback" th:errors="*{exceptionalCondition}"></div>
+                    <div class="form-text">Por ejemplo, uso de muletas o silla de ruedas. Va a aparecer al reservar y la vas a poder cambiar.</div>
+                </div>
             </div>
         </div>
 

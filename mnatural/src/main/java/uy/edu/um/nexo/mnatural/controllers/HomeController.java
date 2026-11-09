@@ -20,6 +20,7 @@ public class HomeController {
             if (LandingPage.hasOwnPanel(authentication)) {
                 model.addAttribute("panelUrl", LandingPage.urlFor(authentication));
             }
+            model.addAttribute("tourist", LandingPage.isTourist(authentication));
         }
         return "index";
     }

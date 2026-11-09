@@ -68,6 +68,27 @@
         </div>
     </div>
 
+    <!-- Confirmada: datos de contacto del emprendimiento (ESPECIFICACION.md, sección 4) -->
+    <div class="card mb-4" th:if="${payment.bookingCode}"
+         th:with="contact=${@bookingService.findBusinessContact(payment.bookingId)}">
+        <div class="card-header">Contacto del emprendimiento</div>
+        <div class="card-body" th:if="${contact}">
+            <dl class="row mb-0">
+                <dt class="col-sm-4">Nombre</dt>
+                <dd class="col-sm-8" th:text="${contact.name}"></dd>
+
+                <dt class="col-sm-4">Teléfono</dt>
+                <dd class="col-sm-8" th:text="${contact.phoneNumber}"></dd>
+
+                <dt class="col-sm-4">Correo</dt>
+                <dd class="col-sm-8" th:text="${contact.email}"></dd>
+
+                <dt class="col-sm-4">Dirección</dt>
+                <dd class="col-sm-8" th:text="${contact.address}"></dd>
+            </dl>
+        </div>
+    </div>
+
     <!-- Pendiente: botón de pagar y plazo -->
     <div class="card mb-4" th:if="${payment.payable}">
         <div class="card-body">
