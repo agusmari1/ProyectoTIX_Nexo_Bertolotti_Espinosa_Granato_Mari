@@ -14,6 +14,7 @@ Se completa a pedido: decile a Claude "agregá a la bitácora: …" y lo suma co
 | #9 | 23/10/2026 | Emails de aviso al prestador al aprobar o rechazar |
 | #13 | 26/10/2026 | Tipos de actividad (ABM del admin) y selección múltiple para el prestador |
 | #17 | 26/10/2026 | Panel del admin con prestadores por estado y alta de administradores |
+| #26 | (abierto, 09/11/2026) | Espacio del prestador: emprendimientos, editar/suspender actividad, reservas, verificar código, clima y cambio de contraseña |
 
 ## Entradas
 
@@ -45,6 +46,17 @@ Se completa a pedido: decile a Claude "agregá a la bitácora: …" y lo suma co
   - El admin ve los prestadores pendientes, aprobados y rechazados, y al iniciar sesión va directo a ese panel (cambio en `SecurityConfig`).
   - "Agregar admin": un admin crea a otros. El usuario es el correo. La contraseña la genera el sistema al azar y se manda solo por correo; botón "Enviar nueva contraseña".
   - `AdminSeeder` crea el primer admin solo si no hay ninguno, con la contraseña de `ADMIN_PASSWORD` (si falta, genera una y la muestra una vez en el log).
+
+### 09/11/2026 — Espacio del prestador, clima y cuenta (#26)
+- **Mis emprendimientos** (`/provider/businesses`): listar, editar y agregar, con las validaciones del registro. `ApprovedProviderResolver` centraliza "solo prestador aprobado". Menú compartido en `fragments/provider-nav`.
+- **Editar y suspender actividad:** `ActivityService` suma `update` y `suspendActivity` (cambio mínimo en archivo de Camila). Suspender reutiliza `suspendSchedule` (reembolso 100 %); el portal y la API ya filtraban por `PUBLISHED`. **Republicar no se hizo:** falta saber si hay reembolsos pendientes.
+- **Reservas** (`/provider/reservations`): repositorio propio `ProviderBookingRepository`. Contacto y participantes solo en reservas confirmadas (especificación, secciones 4 y 6).
+- **Verificar código** (`/provider/verificar`): válido si es del prestador y está confirmada; inexistente y ajeno dan el mismo mensaje.
+- **Clima** (Open-Meteo, sin clave): paquete `weather`, una línea de include en `actividades/detail.html`, memoria de 30 min, nunca rompe el detalle.
+- **Configuración:** `TestProviderSeeder` solo con `app.seed.test-providers=true`; `show-sql` apagado por defecto; `/cuenta/contrasena` para cambiar la propia contraseña.
+- **Tests:** de 160 a 321 (mocks, `@WebMvcTest` y servidor HTTP falso; sin base real ni internet).
+- **Incidencia:** el `JAVA_HOME` del sistema apunta a un `.zip`; `mvnw` falla en PowerShell. Se corrió con el JDK de `Downloads`.
+- **Plan para la contraseña de la base (sin aplicar):** `.env` en `.gitignore` (hoy no está), `.env.example`, `${DB_PASSWORD}` en `docker-compose.yml` y `application.properties`. La contraseña actual ya está en el historial de Git.
 
 ## Detalle: tipos de actividad y administradores (26/10/2026)
 
@@ -101,10 +113,14 @@ Se completa a pedido: decile a Claude "agregá a la bitácora: …" y lo suma co
 | `MAIL_ENABLED` | `true` para enviar correos de verdad (por defecto `false`) |
 | `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD` | Servidor de correo |
 | `APP_BASE_URL` | Dirección pública para los links de los correos (por defecto `http://localhost:8080`) |
+| `SHOW_SQL` | `true` para imprimir las consultas SQL (por defecto `false`) |
+| `app.seed.test-providers` | `true` activa `TestProviderSeeder` (por defecto apagado) |
+| `weather.enabled` | `false` apaga el clima (por defecto activado) |
 
 ## Pendientes
-- Sacar `AdminSeeder` y `TestProviderSeeder` (o cambiar sus datos) antes de entregar.
+- Sacar `AdminSeeder` (o cambiar sus datos) antes de entregar. `TestProviderSeeder` ya está apagado por defecto.
 - Idioma por país al registrarse: hay un TODO en `TouristService` y `ProviderService`.
-- No existe cambiar la propia contraseña ni desactivar o borrar admins.
-- Actividades: falta editar, suspender y borrar desde el espacio del prestador.
+- No existe desactivar o borrar admins. Falta el link de "Cambiar contraseña" en las pantallas del turista.
+- Actividades: falta republicar una suspendida y borrar.
+- Contraseña de la base de datos: aplicar el plan del `.env` con el equipo.
 - Pagos: Camila ya empezó la fase 1 (#15).
