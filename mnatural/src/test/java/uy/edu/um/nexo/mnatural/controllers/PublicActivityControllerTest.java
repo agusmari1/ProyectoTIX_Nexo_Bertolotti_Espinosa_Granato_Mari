@@ -15,6 +15,7 @@ import uy.edu.um.nexo.mnatural.entities.Department;
 import uy.edu.um.nexo.mnatural.repository.ActivityTypeRepository;
 import uy.edu.um.nexo.mnatural.security.Role;
 import uy.edu.um.nexo.mnatural.service.ActivityCatalogService;
+import uy.edu.um.nexo.mnatural.weather.WeatherService;
 
 import java.math.BigDecimal;
 import java.security.Principal;
@@ -41,6 +42,9 @@ class PublicActivityControllerTest {
     private ActivityCatalogService catalogService;
     @MockitoBean
     private ActivityTypeRepository activityTypeRepository;
+    // El nombre importa: la plantilla del clima lo busca como @weatherService
+    @MockitoBean(name = "weatherService")
+    private WeatherService weatherService;
 
     @BeforeEach
     void setUp() {
@@ -92,7 +96,7 @@ class PublicActivityControllerTest {
                     .andExpect(status().isOk())
                     .andExpect(content().string(not(containsString("Iniciar sesión"))))
                     .andExpect(content().string(not(containsString("Mis reservas"))))
-                    .andExpect(content().string(containsString("Mi panel")))
+                    .andExpect(content().string(containsString("Mis actividades")))
                     .andExpect(content().string(containsString("Cerrar sesión")));
         }
     }

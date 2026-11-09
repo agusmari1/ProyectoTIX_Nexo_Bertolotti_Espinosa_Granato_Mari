@@ -9,12 +9,7 @@
 </head>
 <body>
 
-<header class="site-header">
-    <div class="container">
-        <a th:href="@{/}" class="brand"><span class="brand-mark"></span>Uruguay Mnatural</a>
-        <nav th:replace="~{fragments/provider-nav :: nav}"></nav>
-    </div>
-</header>
+<header th:replace="~{fragments/header :: header}"></header>
 
 <section class="hero hero-compact hero-photo hero-actividades">
     <div class="container">

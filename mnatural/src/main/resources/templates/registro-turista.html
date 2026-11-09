@@ -9,14 +9,7 @@
 </head>
 <body>
 
-<header class="site-header">
-    <div class="container">
-        <a th:href="@{/}" class="brand"><span class="brand-mark"></span>Uruguay Mnatural</a>
-        <nav class="site-nav">
-            <a th:href="@{/login}">Iniciar sesión</a>
-        </nav>
-    </div>
-</header>
+<header th:replace="~{fragments/header :: header}"></header>
 
 <!-- La foto se define en styles.css (.hero-registro) -->
 <section class="hero hero-photo hero-registro">

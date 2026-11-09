@@ -156,6 +156,7 @@ a:hover {
 
 .site-nav a {
     color: var(--color-text);
+    white-space: nowrap;
     font-weight: 500;
     font-size: 0.95rem;
     padding: 0.5rem 1rem;
@@ -195,6 +196,100 @@ a:hover {
 
 .nav-button:hover {
     background: var(--color-surface-alt);
+}
+
+/* Menú del usuario con la sesión iniciada: ícono redondo, nombre y opciones desplegables */
+.user-menu {
+    position: relative;
+}
+
+.user-menu-button {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0.75rem 0.25rem 0.25rem;
+    border: 1.5px solid var(--color-border);
+    border-radius: 999px;
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+}
+
+.user-menu-button::-webkit-details-marker {
+    display: none;
+}
+
+.user-menu-button:hover,
+.user-menu[open] .user-menu-button {
+    background: var(--color-surface-alt);
+}
+
+.user-menu-button:focus-visible {
+    outline: 3px solid rgba(63, 91, 44, 0.35);
+    outline-offset: 2px;
+}
+
+.user-avatar {
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: var(--color-primary);
+    color: #fff;
+    font-weight: 700;
+}
+
+.user-name {
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 500;
+    font-size: 0.95rem;
+}
+
+.user-menu-panel {
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    right: 0;
+    z-index: 30;
+    width: 240px;
+    max-width: calc(100vw - 1.5rem);
+    padding: 0.5rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-strong);
+}
+
+.site-nav .user-menu-panel a,
+.user-menu-panel button {
+    display: block;
+    width: 100%;
+    padding: 0.65rem 0.85rem;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--color-text);
+    font: inherit;
+    font-weight: 500;
+    font-size: 0.95rem;
+    text-align: left;
+    cursor: pointer;
+}
+
+.site-nav .user-menu-panel a:hover,
+.user-menu-panel button:hover {
+    background: var(--color-surface-alt);
+    text-decoration: none;
+}
+
+.user-menu-panel form {
+    margin-top: 0.25rem;
+    padding-top: 0.25rem;
+    border-top: 1px solid var(--color-border);
 }
 
 /* ---------- Banner superior ---------- */
@@ -750,6 +845,15 @@ dl.row dd {
 @media (max-width: 576px) {
     .site-header {
         padding: 0.7rem 0;
+    }
+
+    /* En celular alcanza con el ícono; el nombre le quita lugar al logo */
+    .user-name {
+        display: none;
+    }
+
+    .user-menu-button {
+        padding: 0.2rem;
     }
 
     .brand {
