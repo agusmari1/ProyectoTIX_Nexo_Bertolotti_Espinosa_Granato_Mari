@@ -37,7 +37,17 @@ public final class LandingPage {
         return hasRole(authentication, Role.TOURIST);
     }
 
-    // Lo que necesita el encabezado de una página pública para mostrar los accesos según la sesión:
+    // El rol del usuario, o null si no tiene ninguno de los tres
+    public static Role roleOf(Authentication authentication) {
+        for (Role role : Role.values()) {
+            if (hasRole(authentication, role)) {
+                return role;
+            }
+        }
+        return null;
+    }
+
+    // Lo que necesita el cuerpo de la página de inicio para mostrar los accesos según la sesión:
     // con quién se inició sesión, su panel (si tiene) y si es turista. Sin sesión no agrega nada
     public static void addSessionInfo(Model model, Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()

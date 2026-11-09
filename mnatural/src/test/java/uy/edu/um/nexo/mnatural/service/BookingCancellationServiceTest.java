@@ -57,7 +57,7 @@ class BookingCancellationServiceTest {
 
         activity = new Activity();
         activity.setCancellationAllowed(true);
-        activity.setCancellationCutoffHours(48);
+        activity.setCancellationCutoffMinutes(2880);
         activity.setRefundPercentage(new BigDecimal("50"));
 
         schedule = new ActivitySchedule();

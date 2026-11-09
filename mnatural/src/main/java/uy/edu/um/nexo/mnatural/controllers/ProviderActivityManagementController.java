@@ -146,7 +146,7 @@ public class ProviderActivityManagementController {
         dto.setEquipment(activity.getEquipment());
         dto.setBookingCutoffMinutes(activity.getBookingCutoffMinutes());
         dto.setCancellationAllowed(activity.isCancellationAllowed());
-        dto.setCancellationCutoffHours(activity.getCancellationCutoffHours());
+        dto.setCancellationCutoffMinutes(activity.getCancellationCutoffMinutes());
         dto.setRefundPercentage(activity.getRefundPercentage());
         dto.setActivityTypeIds(activity.getActivityTypes().stream()
                 .map(ActivityType::getId)

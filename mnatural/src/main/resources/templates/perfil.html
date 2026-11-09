@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Mi perfil | Uruguay Mnatural</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/css/styles.css}">
+</head>
+<body>
+
+<header th:replace="~{fragments/header :: header}"></header>
+
+<!-- La foto se define en styles.css (.hero-actividades) -->
+<section class="hero hero-compact hero-photo hero-actividades">
+    <div class="container">
+        <h1>Mi perfil</h1>
+        <p th:text="${profile.name} + ' ' + ${profile.lastName}"></p>
+    </div>
+</section>
+
+<main class="page page-flat container page-wide">
+
+    <!-- Datos personales -->
+    <div class="card mb-4">
+        <div class="card-header">Mis datos</div>
+        <div class="card-body">
+            <dl class="row mb-0">
+                <dt class="col-sm-4">Nombre</dt>
+                <dd class="col-sm-8" th:text="${profile.name} + ' ' + ${profile.lastName}"></dd>
+
+                <dt class="col-sm-4">Correo electrónico</dt>
+                <dd class="col-sm-8" th:text="${profile.email}"></dd>
+
+                <th:block th:if="${profile.dateOfBirth}">
+                    <dt class="col-sm-4">Fecha de nacimiento</dt>
+                    <dd class="col-sm-8" th:text="${#temporals.format(profile.dateOfBirth, 'dd/MM/yyyy')}"></dd>
+                </th:block>
+
+                <th:block th:if="${profile.documentType}">
+                    <dt class="col-sm-4">Documento</dt>
+                    <dd class="col-sm-8">
+                        <span th:switch="${profile.documentType.name()}">
+                            <span th:case="'CI'">Cédula de identidad</span>
+                            <span th:case="'PASSPORT'">Pasaporte</span>
+                            <span th:case="'DNI'">DNI</span>
+                            <span th:case="*">Otro</span>
+                        </span>
+                        <span th:text="${profile.documentNumber}"></span>
+                    </dd>
+                </th:block>
+
+                <th:block th:if="${profile.country}">
+                    <dt class="col-sm-4">País</dt>
+                    <dd class="col-sm-8" th:text="${profile.country}"></dd>
+                </th:block>
+
+                <th:block th:if="${profile.phoneNumber}">
+                    <dt class="col-sm-4">Teléfono</dt>
+                    <dd class="col-sm-8" th:text="${profile.phoneNumber}"></dd>
+                </th:block>
+
+                <th:block th:if="${profile.exceptionalCondition}">
+                    <dt class="col-sm-4">Condición a tener en cuenta</dt>
+                    <dd class="col-sm-8" th:text="${profile.exceptionalCondition}"></dd>
+                </th:block>
+
+                <th:block th:if="${profile.approvalStatus}">
+                    <dt class="col-sm-4">Estado de aprobación</dt>
+                    <dd class="col-sm-8" th:switch="${profile.approvalStatus.name()}">
+                        <span th:case="'APPROVED'" class="badge text-bg-success">Aprobado</span>
+                        <span th:case="'PENDING'" class="badge text-bg-warning">Pendiente</span>
+                        <span th:case="'REJECTED'" class="badge text-bg-secondary">Rechazado</span>
+                    </dd>
+                </th:block>
+            </dl>
+        </div>
+    </div>
+
+    <!-- Prestador: sus emprendimientos -->
+    <th:block th:if="${profile.role.name() == 'PROVIDER'}">
+        <div class="alert alert-info" th:if="${#lists.isEmpty(profile.businesses)}">
+            Todavía no tenés emprendimientos registrados.
+        </div>
+        <div class="card mb-4" th:each="business : ${profile.businesses}">
+            <div class="card-header" th:text="${business.name}"></div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">Tipo</dt>
+                    <dd class="col-sm-8" th:text="${business.legalType.name() == 'COMPANY'} ? 'Empresa' : 'Persona particular'"></dd>
+
+                    <th:block th:if="${business.rut}">
+                        <dt class="col-sm-4">RUT</dt>
+                        <dd class="col-sm-8" th:text="${business.rut}"></dd>
+                    </th:block>
+
+                    <dt class="col-sm-4">Dirección</dt>
+                    <dd class="col-sm-8" th:text="${business.address}"></dd>
+
+                    <dt class="col-sm-4">Teléfono</dt>
+                    <dd class="col-sm-8" th:text="${business.phoneNumber}"></dd>
+
+                    <dt class="col-sm-4">Correo</dt>
+                    <dd class="col-sm-8" th:text="${business.email}"></dd>
+
+                    <th:block th:if="${business.servicesDescription}">
+                        <dt class="col-sm-4">Servicios</dt>
+                        <dd class="col-sm-8" th:text="${business.servicesDescription}"></dd>
+                    </th:block>
+                </dl>
+            </div>
+        </div>
+    </th:block>
+
+    <!-- Turista: historial de reservas -->
+    <div class="card" th:if="${profile.role.name() == 'TOURIST'}">
+        <div class="card-header">Mis reservas</div>
+        <div class="card-body" th:if="${#lists.isEmpty(profile.bookings)}">
+            <p class="text-muted mb-0">Todavía no tenés reservas.</p>
+        </div>
+        <div class="table-responsive" th:unless="${#lists.isEmpty(profile.bookings)}">
+            <table class="table mb-0">
+                <thead>
+                <tr>
+                    <th>Actividad</th>
+                    <th>Fecha y hora</th>
+                    <th>Estado</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="booking : ${profile.bookings}">
+                    <td><a th:href="@{/payments/bookings/{id}(id=${booking.bookingId})}" th:text="${booking.activityName}"></a></td>
+                    <td th:text="${#temporals.format(booking.startDateTime, 'dd/MM/yyyy HH:mm')}"></td>
+                    <td th:switch="${booking.status.name()}">
+                        <span th:case="'CONFIRMED'" class="badge text-bg-success">Confirmada</span>
+                        <span th:case="'PENDING'" class="badge text-bg-warning">Pendiente de pago</span>
+                        <span th:case="'CANCELLED'" class="badge text-bg-secondary">Cancelada</span>
+                        <span th:case="'EXPIRED'" class="badge text-bg-secondary">Vencida</span>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</main>
+
+<footer class="site-footer">
+    <div class="container">
+        <a th:href="@{/}" class="brand"><span class="brand-mark"></span>Uruguay Mnatural</a>
+        <span>Experiencias de naturaleza en todo Uruguay</span>
+    </div>
+</footer>
+
+</body>
+</html>

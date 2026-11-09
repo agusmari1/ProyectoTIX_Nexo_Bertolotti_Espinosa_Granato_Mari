@@ -232,13 +232,13 @@ public class PaymentService {
             throw new PaymentException("Esta actividad no admite cancelaciones: el prestador definió que las "
                     + "reservas no se cancelan ni se reembolsan.");
         }
-        int cutoffHours = activity.getCancellationCutoffHours() == null ? 0 : activity.getCancellationCutoffHours();
-        LocalDateTime deadline = schedule.getStartDateTime().minusHours(cutoffHours);
+        int cutoffMinutes = activity.getCancellationCutoffMinutes() == null ? 0 : activity.getCancellationCutoffMinutes();
+        LocalDateTime deadline = schedule.getStartDateTime().minusMinutes(cutoffMinutes);
         if (!now.isBefore(deadline)) {
-            throw new PaymentException(cutoffHours == 0
+            throw new PaymentException(cutoffMinutes == 0
                     ? "La actividad ya comenzó: la reserva ya no se puede cancelar ni reembolsar."
-                    : "Ya pasó el plazo para cancelar: esta actividad admite cancelaciones hasta " + cutoffHours
-                    + " horas antes del inicio. La reserva ya no se puede cancelar ni reembolsar.");
+                    : "Ya pasó el plazo para cancelar: esta actividad admite cancelaciones hasta " + cutoffMinutes
+                    + " minutos antes del inicio. La reserva ya no se puede cancelar ni reembolsar.");
         }
         return activity.getRefundPercentage() == null ? BigDecimal.ZERO : activity.getRefundPercentage();
     }

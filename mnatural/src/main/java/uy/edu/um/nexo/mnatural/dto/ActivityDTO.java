@@ -54,7 +54,7 @@ public class ActivityDTO {
 
     private boolean cancellationAllowed;
 
-    private Integer cancellationCutoffHours;
+    private Integer cancellationCutoffMinutes;
 
     @Digits(integer = 3, fraction = 2, message = "El porcentaje puede tener hasta 2 decimales")
     private BigDecimal refundPercentage;
@@ -168,12 +168,12 @@ public class ActivityDTO {
         this.cancellationAllowed = cancellationAllowed;
     }
 
-    public Integer getCancellationCutoffHours() {
-        return cancellationCutoffHours;
+    public Integer getCancellationCutoffMinutes() {
+        return cancellationCutoffMinutes;
     }
 
-    public void setCancellationCutoffHours(Integer cancellationCutoffHours) {
-        this.cancellationCutoffHours = cancellationCutoffHours;
+    public void setCancellationCutoffMinutes(Integer cancellationCutoffMinutes) {
+        this.cancellationCutoffMinutes = cancellationCutoffMinutes;
     }
 
     public BigDecimal getRefundPercentage() {

@@ -1,7 +1,6 @@
 package uy.edu.um.nexo.mnatural.controllers;
 
 import org.springframework.data.domain.Sort;
-import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -13,7 +12,6 @@ import uy.edu.um.nexo.mnatural.entities.Activity;
 import uy.edu.um.nexo.mnatural.entities.ActivityType;
 import uy.edu.um.nexo.mnatural.entities.Department;
 import uy.edu.um.nexo.mnatural.repository.ActivityTypeRepository;
-import uy.edu.um.nexo.mnatural.security.LandingPage;
 import uy.edu.um.nexo.mnatural.service.ActivityCatalogService;
 
 import java.util.LinkedHashMap;
@@ -33,12 +31,6 @@ public class PublicActivityController {
                                     ActivityTypeRepository activityTypeRepository) {
         this.catalogService = catalogService;
         this.activityTypeRepository = activityTypeRepository;
-    }
-
-    // Las páginas son públicas, pero el encabezado cambia si el visitante ya inició sesión
-    @ModelAttribute
-    public void sessionInfo(Authentication authentication, Model model) {
-        LandingPage.addSessionInfo(model, authentication);
     }
 
     // Nombres para mostrar. Es la misma lista que usa ActivityController

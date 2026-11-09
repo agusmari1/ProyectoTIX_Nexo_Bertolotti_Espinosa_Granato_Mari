@@ -52,7 +52,7 @@ public class Activity {
     private boolean cancellationAllowed;
 
     @Column(nullable = true)
-    private Integer cancellationCutoffHours;
+    private Integer cancellationCutoffMinutes;
 
     @Column(nullable = true, precision = 5, scale = 2)
     private BigDecimal refundPercentage;
@@ -189,12 +189,12 @@ public class Activity {
         this.cancellationAllowed = cancellationAllowed;
     }
 
-    public Integer getCancellationCutoffHours() {
-        return cancellationCutoffHours;
+    public Integer getCancellationCutoffMinutes() {
+        return cancellationCutoffMinutes;
     }
 
-    public void setCancellationCutoffHours(Integer cancellationCutoffHours) {
-        this.cancellationCutoffHours = cancellationCutoffHours;
+    public void setCancellationCutoffMinutes(Integer cancellationCutoffMinutes) {
+        this.cancellationCutoffMinutes = cancellationCutoffMinutes;
     }
 
     public BigDecimal getRefundPercentage() {
