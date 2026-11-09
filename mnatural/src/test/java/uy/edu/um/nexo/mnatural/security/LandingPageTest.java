@@ -39,6 +39,13 @@ class LandingPageTest {
     }
 
     @Test
+    void onlyATouristGetsTheAccessToItsBookings() {
+        assertThat(LandingPage.isTourist(userWithRole(Role.TOURIST))).isTrue();
+        assertThat(LandingPage.isTourist(userWithRole(Role.PROVIDER))).isFalse();
+        assertThat(LandingPage.isTourist(null)).isFalse();
+    }
+
+    @Test
     void withoutASessionItStaysInTheHome() {
         assertThat(LandingPage.urlFor(null)).isEqualTo("/");
         assertThat(LandingPage.hasOwnPanel(null)).isFalse();

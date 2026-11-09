@@ -3,7 +3,10 @@ package uy.edu.um.nexo.mnatural.service;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import uy.edu.um.nexo.mnatural.dto.BookingRequestDTO;
+import uy.edu.um.nexo.mnatural.dto.BookingSummaryDTO;
+import uy.edu.um.nexo.mnatural.dto.BusinessContactDTO;
 import uy.edu.um.nexo.mnatural.dto.ParticipantDTO;
+import uy.edu.um.nexo.mnatural.dto.TouristBookingDTO;
 import uy.edu.um.nexo.mnatural.entities.Activity;
 import uy.edu.um.nexo.mnatural.entities.ActivitySchedule;
 import uy.edu.um.nexo.mnatural.entities.ActivityStatus;
@@ -90,23 +93,68 @@ public class BookingService {
         booking.setHeldUntil(now.plusMinutes(HOLD_MINUTES));
         participants.forEach(booking::addParticipant);
 
-        Booking saved = bookingRepository.save(booking);
-
-        // ===== PAGO (lo implementa otra compañera) =====
-        // Después de crear la reserva, el controller tiene que llamar a PaymentService con saved.
-        // Para confirmarla, PaymentService tiene que, en una transacción:
-        //   1. volver a leer la reserva y verificar que siga PENDING y que heldUntil no haya vencido
-        //      (si venció, BookingExpirationTask ya la pasó o la va a pasar a EXPIRED);
-        //   2. si el pago sale bien, pasarla a CONFIRMED y dejar heldUntil en null;
-        //   3. si el pago no se puede completar, extender heldUntil hasta 2 horas
-        //      (o hasta el límite de reserva de la actividad, lo que ocurra primero).
-        return saved;
+        return bookingRepository.save(booking);
     }
 
     // Lo llama BookingExpirationTask cada minuto. Devuelve cuántas reservas vencieron
     @Transactional
     public int expireHeldBookings() {
         return bookingRepository.expireHeldBookings(LocalDateTime.now());
+    }
+
+    // Lo que se muestra antes de reservar una fecha, con el motivo si no se puede reservar
+    @Transactional(readOnly = true)
+    public BookingSummaryDTO getBookingSummary(Long activityScheduleId) {
+        ActivitySchedule schedule = activityScheduleRepository.findById(activityScheduleId)
+                .orElseThrow(() -> new BookingException("La fecha elegida no existe."));
+        Activity activity = schedule.getActivity();
+        LocalDateTime now = LocalDateTime.now();
+        int spots = availableSpots(schedule, now);
+        return new BookingSummaryDTO(schedule.getId(), activity.getId(), activity.getName(),
+                activity.getBusiness().getName(), activity.getLocality(), schedule.getStartDateTime(),
+                activity.getDurationMinutes(), activity.getPricePerPerson(), activity.getMinAge(), spots,
+                HOLD_MINUTES, blockedReason(schedule, activity, spots, now));
+    }
+
+    // Las reservas del turista, de la más reciente a la más antigua
+    @Transactional(readOnly = true)
+    public List<TouristBookingDTO> findBookingsOf(Long touristId) {
+        LocalDateTime now = LocalDateTime.now();
+        return bookingRepository.findByTouristIdOrderByCreatedAtDescIdDesc(touristId).stream()
+                .map(booking -> toTouristBooking(booking, now))
+                .toList();
+    }
+
+    // Solo hay datos de contacto con la reserva confirmada (null en cualquier otro caso).
+    // Lo usa payments/booking.html, que ya verificó que la reserva es del turista logueado
+    @Transactional(readOnly = true)
+    public BusinessContactDTO findBusinessContact(Long bookingId) {
+        return bookingRepository.findById(bookingId)
+                .filter(booking -> booking.getStatus() == BookingStatus.CONFIRMED)
+                .map(booking -> booking.getActivitySchedule().getActivity().getBusiness())
+                .map(business -> new BusinessContactDTO(business.getName(), business.getPhoneNumber(),
+                        business.getEmail(), business.getAddress()))
+                .orElse(null);
+    }
+
+    private TouristBookingDTO toTouristBooking(Booking booking, LocalDateTime now) {
+        ActivitySchedule schedule = booking.getActivitySchedule();
+        Activity activity = schedule.getActivity();
+        boolean confirmed = booking.getStatus() == BookingStatus.CONFIRMED;
+        boolean finished = schedule.getStartDateTime().plusMinutes(activity.getDurationMinutes()).isBefore(now);
+        return new TouristBookingDTO(booking.getId(), activity.getName(), schedule.getStartDateTime(),
+                booking.getParticipantCount(), booking.getTotalAmount(), booking.getStatus(),
+                booking.getHeldUntil(), confirmed ? booking.getBookingCode() : null, confirmed && finished);
+    }
+
+    // Usa las mismas validaciones que createBooking, para que el motivo sea siempre el mismo
+    private String blockedReason(ActivitySchedule schedule, Activity activity, int spots, LocalDateTime now) {
+        try {
+            validateBookable(schedule, activity, now);
+        } catch (BookingException e) {
+            return e.getMessage();
+        }
+        return spots == 0 ? new NotEnoughSpotsException(0, 1).getMessage() : null;
     }
 
     private int availableSpots(ActivitySchedule schedule, LocalDateTime now) {
