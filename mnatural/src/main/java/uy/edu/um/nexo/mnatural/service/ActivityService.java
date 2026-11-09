@@ -166,10 +166,10 @@ public class ActivityService {
         activity.setCancellationAllowed(dto.isCancellationAllowed());
         // Si no admite cancelaciones, el plazo y el reembolso no aplican
         if (dto.isCancellationAllowed()) {
-            activity.setCancellationCutoffHours(dto.getCancellationCutoffHours());
+            activity.setCancellationCutoffMinutes(dto.getCancellationCutoffMinutes());
             activity.setRefundPercentage(dto.getRefundPercentage());
         } else {
-            activity.setCancellationCutoffHours(null);
+            activity.setCancellationCutoffMinutes(null);
             activity.setRefundPercentage(null);
         }
     }
@@ -275,12 +275,12 @@ public class ActivityService {
             throw new ActivityValidationException("bookingCutoffMinutes", "El límite de reserva no puede ser negativo.");
         }
         if (dto.isCancellationAllowed()) {
-            if (dto.getCancellationCutoffHours() == null) {
-                throw new ActivityValidationException("cancellationCutoffHours",
-                        "Indicá con cuántas horas de anticipación se puede cancelar.");
+            if (dto.getCancellationCutoffMinutes() == null) {
+                throw new ActivityValidationException("cancellationCutoffMinutes",
+                        "Indicá con cuántos minutos de anticipación se puede cancelar.");
             }
-            if (dto.getCancellationCutoffHours() < 0) {
-                throw new ActivityValidationException("cancellationCutoffHours",
+            if (dto.getCancellationCutoffMinutes() < 0) {
+                throw new ActivityValidationException("cancellationCutoffMinutes",
                         "La anticipación no puede ser negativa.");
             }
             BigDecimal refund = dto.getRefundPercentage();

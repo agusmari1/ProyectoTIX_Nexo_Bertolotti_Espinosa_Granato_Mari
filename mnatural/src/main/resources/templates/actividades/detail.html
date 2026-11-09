@@ -67,7 +67,7 @@
                             <span class="text-label">Cancelación:</span><br>
                             <span th:if="${!activity.cancellationAllowed}">Esta actividad no admite cancelaciones.</span>
                             <span th:if="${activity.cancellationAllowed}"
-                                  th:text="'Hasta ' + ${activity.cancellationCutoffHours} + ' h antes, con reembolso del '
+                                  th:text="'Hasta ' + ${activity.cancellationCutoffMinutes} + ' minutos antes, con reembolso del '
                                            + ${#numbers.formatDecimal(activity.refundPercentage, 1, 0)} + ' %.'"></span>
                         </div>
                         <div class="col-12" th:if="${activity.requirements}">
