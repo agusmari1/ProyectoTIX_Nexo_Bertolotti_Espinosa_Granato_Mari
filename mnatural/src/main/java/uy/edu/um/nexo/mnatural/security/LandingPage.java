@@ -1,6 +1,8 @@
 package uy.edu.um.nexo.mnatural.security;
 
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.ui.Model;
 
 // Dónde empieza cada rol cuando ya tiene la sesión iniciada: el admin en su panel de prestadores y
 // el prestador en sus actividades. Los turistas no tienen un panel propio, así que quedan en la
@@ -33,6 +35,20 @@ public final class LandingPage {
     // Para mostrarle el acceso a "Mis reservas" en la página de inicio
     public static boolean isTourist(Authentication authentication) {
         return hasRole(authentication, Role.TOURIST);
+    }
+
+    // Lo que necesita el encabezado de una página pública para mostrar los accesos según la sesión:
+    // con quién se inició sesión, su panel (si tiene) y si es turista. Sin sesión no agrega nada
+    public static void addSessionInfo(Model model, Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()
+                || authentication instanceof AnonymousAuthenticationToken) {
+            return;
+        }
+        model.addAttribute("loggedInAs", authentication.getName());
+        if (hasOwnPanel(authentication)) {
+            model.addAttribute("panelUrl", urlFor(authentication));
+        }
+        model.addAttribute("tourist", isTourist(authentication));
     }
 
     private static boolean hasRole(Authentication authentication, Role role) {
