@@ -1,6 +1,7 @@
 package uy.edu.um.nexo.mnatural.repository;
 
 import jakarta.persistence.LockModeType;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
@@ -10,9 +11,14 @@ import uy.edu.um.nexo.mnatural.entities.ActivitySchedule;
 import uy.edu.um.nexo.mnatural.entities.Booking;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 public interface BookingRepository extends JpaRepository<Booking, Long> {
+
+    // Las reservas del turista, con el horario y la actividad para mostrarlos en "Mis reservas"
+    @EntityGraph(attributePaths = {"activitySchedule", "activitySchedule.activity"})
+    List<Booking> findByTouristIdOrderByCreatedAtDescIdDesc(Long touristId);
 
     // Trae el horario y bloquea su fila (SELECT ... FOR UPDATE) hasta que termine la transacción.
     // Otro turista que quiera reservar la misma fecha espera acá hasta que la primera reserva

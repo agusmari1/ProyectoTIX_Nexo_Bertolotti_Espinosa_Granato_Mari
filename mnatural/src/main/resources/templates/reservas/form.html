@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Reservar | Uruguay Mnatural</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/css/styles.css}">
+</head>
+<body>
+
+<header class="site-header">
+    <div class="container">
+        <a th:href="@{/}" class="brand"><span class="brand-mark"></span>Uruguay Mnatural</a>
+        <nav class="site-nav">
+            <a th:href="@{/turista/reservas}">Mis reservas</a>
+            <form th:action="@{/logout}" method="post">
+                <button type="submit" class="nav-button">Cerrar sesión</button>
+            </form>
+        </nav>
+    </div>
+</header>
+
+<!-- La foto se define en styles.css (.hero-actividades) -->
+<section class="hero hero-compact hero-photo hero-actividades">
+    <div class="container">
+        <h1>Reservar</h1>
+        <p th:text="${summary.activityName}"></p>
+    </div>
+</section>
+
+<main class="page page-flat container page-wide">
+
+    <a th:href="@{/actividades/{id}(id=${summary.activityId})}" class="back-link">&larr; Volver a la actividad</a>
+
+    <div class="alert alert-danger" th:if="${errorMessage}" th:text="${errorMessage}"></div>
+    <div class="alert alert-warning" th:unless="${summary.bookable}" th:text="${summary.blockedReason}"></div>
+
+    <!-- Resumen -->
+    <div class="card mb-4">
+        <div class="card-header">Resumen</div>
+        <div class="card-body">
+            <dl class="row mb-0">
+                <dt class="col-sm-4">Actividad</dt>
+                <dd class="col-sm-8" th:text="${summary.activityName}"></dd>
+
+                <dt class="col-sm-4">Emprendimiento</dt>
+                <dd class="col-sm-8" th:text="${summary.businessName}"></dd>
+
+                <dt class="col-sm-4">Localidad</dt>
+                <dd class="col-sm-8" th:text="${summary.locality}"></dd>
+
+                <dt class="col-sm-4">Fecha</dt>
+                <dd class="col-sm-8" th:text="${#temporals.format(summary.startDateTime, 'dd/MM/yyyy')}"></dd>
+
+                <dt class="col-sm-4">Horario</dt>
+                <dd class="col-sm-8">
+                    <span th:text="${#temporals.format(summary.startDateTime, 'HH:mm')}"></span>
+                    (<span th:text="${summary.durationMinutes}"></span> minutos)
+                </dd>
+
+                <dt class="col-sm-4">Precio por persona</dt>
+                <dd class="col-sm-8" th:text="'$ ' + ${#numbers.formatDecimal(summary.pricePerPerson, 1, 'POINT', 2, 'COMMA')}"></dd>
+
+                <th:block th:if="${summary.minAge != null and summary.minAge > 0}">
+                    <dt class="col-sm-4">Edad mínima</dt>
+                    <dd class="col-sm-8" th:text="${summary.minAge} + ' años'"></dd>
+                </th:block>
+
+                <dt class="col-sm-4">Lugares libres</dt>
+                <dd class="col-sm-8" th:text="${summary.availableSpots}"></dd>
+            </dl>
+        </div>
+    </div>
+
+    <form th:if="${summary.bookable}" th:action="@{/reservar/{id}(id=${summary.scheduleId})}" th:object="${booking}"
+          method="post" novalidate>
+
+        <!-- Participantes -->
+        <div class="card mb-4">
+            <div class="card-header">Participantes</div>
+            <div class="card-body row g-3">
+
+                <div class="col-md-6">
+                    <label for="participantCount" class="form-label">Cantidad de participantes</label>
+                    <!-- Sin name: solo decide cuántos acompañantes se muestran. La cantidad real se calcula con ellos -->
+                    <input type="number" id="participantCount" class="form-control" min="1"
+                           th:attr="max=${summary.availableSpots}"
+                           th:value="${#lists.size(booking.participants) + (booking.holderParticipates ? 1 : 0)}">
+                </div>
+
+                <div class="col-12">
+                    <div class="form-check">
+                        <input type="checkbox" id="holderParticipates" class="form-check-input" th:field="*{holderParticipates}">
+                        <label class="form-check-label" for="holderParticipates">Yo también participo</label>
+                    </div>
+                    <div class="form-text">Destildalo si reservás solo para otras personas.</div>
+                </div>
+
+                <div class="col-12" id="holder-notes">
+                    <label for="holderNotes" class="form-label">Tu observación <span class="text-muted fw-normal">(opcional)</span></label>
+                    <textarea id="holderNotes" rows="2" class="form-control" th:field="*{holderNotes}"></textarea>
+                    <div class="form-text">Algo relevante para el servicio, por ejemplo uso de muletas o silla de ruedas.</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Acompañantes: la plantilla de abajo agrega una tarjeta por cada uno -->
+        <div id="participant-rows">
+            <div class="card mb-4" th:each="participant, row : *{participants}">
+                <div class="card-header" th:text="'Acompañante ' + ${row.count}"></div>
+                <div class="card-body row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label" th:for="|participants${row.index}.name|">Nombre</label>
+                        <input type="text" class="form-control" th:field="*{participants[__${row.index}__].name}" th:errorclass="is-invalid">
+                        <div class="invalid-feedback" th:errors="*{participants[__${row.index}__].name}"></div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" th:for="|participants${row.index}.lastName|">Apellido</label>
+                        <input type="text" class="form-control" th:field="*{participants[__${row.index}__].lastName}" th:errorclass="is-invalid">
+                        <div class="invalid-feedback" th:errors="*{participants[__${row.index}__].lastName}"></div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" th:for="|participants${row.index}.documentType|">Tipo de documento</label>
+                        <select class="form-select" th:field="*{participants[__${row.index}__].documentType}" th:errorclass="is-invalid">
+                            <option value="">Seleccioná…</option>
+                            <option th:each="option : ${documentTypes}" th:value="${option.key}" th:text="${option.value}"></option>
+                        </select>
+                        <div class="invalid-feedback" th:errors="*{participants[__${row.index}__].documentType}"></div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" th:for="|participants${row.index}.documentNumber|">Número de documento</label>
+                        <input type="text" class="form-control" th:field="*{participants[__${row.index}__].documentNumber}" th:errorclass="is-invalid">
+                        <div class="invalid-feedback" th:errors="*{participants[__${row.index}__].documentNumber}"></div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" th:for="|participants${row.index}.dateOfBirth|">Fecha de nacimiento</label>
+                        <input type="date" class="form-control" th:field="*{participants[__${row.index}__].dateOfBirth}" th:errorclass="is-invalid">
+                        <div class="invalid-feedback" th:errors="*{participants[__${row.index}__].dateOfBirth}"></div>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label" th:for="|participants${row.index}.notes|">Observaciones <span class="text-muted fw-normal">(opcional)</span></label>
+                        <textarea rows="2" class="form-control" th:field="*{participants[__${row.index}__].notes}"></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Observaciones generales -->
+        <div class="card mb-4">
+            <div class="card-header">Observaciones generales <span class="text-muted fw-normal ms-1">(opcional)</span></div>
+            <div class="card-body">
+                <label for="generalNotes" class="form-label">Algo que el prestador deba saber</label>
+                <textarea id="generalNotes" rows="2" class="form-control" th:field="*{generalNotes}"></textarea>
+            </div>
+        </div>
+
+        <!-- Total y retención -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <p class="h5 mb-2">
+                    Total estimado:
+                    <strong id="estimated-total" th:attr="data-price=${summary.pricePerPerson}"
+                            th:text="'$ ' + ${#numbers.formatDecimal(summary.pricePerPerson, 1, 'POINT', 2, 'COMMA')}"></strong>
+                </p>
+                <p class="text-muted mb-0">
+                    Al continuar, tus lugares quedan retenidos durante
+                    <span th:text="${summary.holdMinutes}"></span> minutos. En la pantalla siguiente vas a ver
+                    hasta qué hora tenés para pagar.
+                </p>
+            </div>
+        </div>
+
+        <button type="submit" class="btn btn-success btn-lg w-100">Continuar al pago</button>
+    </form>
+
+    <!-- Tarjeta de un acompañante nuevo. El script reemplaza __INDEX__ y __NUMBER__ -->
+    <template id="participant-template" th:if="${summary.bookable}">
+        <div class="card mb-4">
+            <div class="card-header">Acompañante __NUMBER__</div>
+            <div class="card-body row g-3">
+                <div class="col-md-6">
+                    <label class="form-label" for="participants__INDEX__.name">Nombre</label>
+                    <input type="text" id="participants__INDEX__.name" name="participants[__INDEX__].name" class="form-control">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label" for="participants__INDEX__.lastName">Apellido</label>
+                    <input type="text" id="participants__INDEX__.lastName" name="participants[__INDEX__].lastName" class="form-control">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label" for="participants__INDEX__.documentType">Tipo de documento</label>
+                    <select id="participants__INDEX__.documentType" name="participants[__INDEX__].documentType" class="form-select">
+                        <option value="">Seleccioná…</option>
+                        <option th:each="option : ${documentTypes}" th:value="${option.key}" th:text="${option.value}"></option>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label" for="participants__INDEX__.documentNumber">Número de documento</label>
+                    <input type="text" id="participants__INDEX__.documentNumber" name="participants[__INDEX__].documentNumber" class="form-control">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label" for="participants__INDEX__.dateOfBirth">Fecha de nacimiento</label>
+                    <input type="date" id="participants__INDEX__.dateOfBirth" name="participants[__INDEX__].dateOfBirth" class="form-control">
+                </div>
+                <div class="col-12">
+                    <label class="form-label" for="participants__INDEX__.notes">Observaciones <span class="text-muted fw-normal">(opcional)</span></label>
+                    <textarea id="participants__INDEX__.notes" name="participants[__INDEX__].notes" rows="2" class="form-control"></textarea>
+                </div>
+            </div>
+        </div>
+    </template>
+
+</main>
+
+<footer class="site-footer">
+    <div class="container">
+        <a th:href="@{/}" class="brand"><span class="brand-mark"></span>Uruguay Mnatural</a>
+        <span>Experiencias de naturaleza en todo Uruguay</span>
+    </div>
+</footer>
+
+<script>
+    // Muestra una tarjeta por acompañante según la cantidad de participantes y actualiza el total
+    (function () {
+        const template = document.getElementById('participant-template');
+        if (!template) {
+            return;
+        }
+        const count = document.getElementById('participantCount');
+        const holder = document.getElementById('holderParticipates');
+        const holderNotes = document.getElementById('holder-notes');
+        const rows = document.getElementById('participant-rows');
+        const total = document.getElementById('estimated-total');
+        const price = parseFloat(total.dataset.price);
+
+        function refresh() {
+            const participants = Math.max(1, parseInt(count.value, 10) || 1);
+            const companions = participants - (holder.checked ? 1 : 0);
+            while (rows.children.length > companions) {
+                rows.lastElementChild.remove();
+            }
+            while (rows.children.length < companions) {
+                const index = rows.children.length;
+                rows.insertAdjacentHTML('beforeend', template.innerHTML
+                    .replaceAll('__INDEX__', index)
+                    .replaceAll('__NUMBER__', index + 1));
+            }
+            holderNotes.hidden = !holder.checked;
+            total.textContent = '$ ' + (price * participants)
+                .toLocaleString('es-UY', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        }
+
+        count.addEventListener('input', refresh);
+        holder.addEventListener('change', refresh);
+        refresh();
+    })();
+</script>
+</body>
+</html>
