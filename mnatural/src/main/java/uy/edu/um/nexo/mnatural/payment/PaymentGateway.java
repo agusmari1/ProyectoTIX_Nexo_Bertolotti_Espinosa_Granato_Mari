@@ -28,4 +28,22 @@ public interface PaymentGateway {
     default Optional<String> findExternalReference(String paymentId) {
         return Optional.empty();
     }
+
+    // Cómo paga el turista: con la página del servicio (por defecto) o con un formulario de tarjeta dentro de la app
+    default CheckoutMode checkoutMode() {
+        return CheckoutMode.REDIRECT;
+    }
+
+    // Clave pública con la que el navegador arma el formulario de tarjeta del servicio (Mercado Pago). Puede mostrarse en
+    // la página: no sirve para cobrar. null si no hay: con el pago simulado el formulario es el propio de la aplicación
+    default String publicKey() {
+        return null;
+    }
+
+    // Cobra con tarjeta, solo si checkoutMode() es CARD_FORM. La referencia la define quien llama (así el intento ya está
+    // guardado cuando llega el aviso del servicio) y devuelve cómo quedó el pago
+    default GatewayPaymentStatus payWithCard(Booking booking, String externalReference, BigDecimal amount,
+                                             CardPaymentRequest request) {
+        throw new UnsupportedOperationException("Este servicio de pagos no cobra con formulario de tarjeta");
+    }
 }

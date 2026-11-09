@@ -52,16 +52,24 @@ public class MercadoPagoPaymentGateway implements PaymentGateway {
     private final boolean autoReturn;
     // Adonde Mercado Pago avisa el resultado del pago (webhook). Solo con https; null si no se usa
     private final String webhookUrl;
+    // Clave pública de la aplicación de Mercado Pago, para el formulario de tarjeta. null si no se configuró
+    private final String publicKey;
 
     // @Autowired: hay dos constructores y este es el que usa Spring (el otro es para los tests)
     @Autowired
     public MercadoPagoPaymentGateway(@Value("${MP_ACCESS_TOKEN:}") String accessToken,
-                                     @Value("${app.base-url:http://localhost:8080}") String baseUrl) {
-        this(RestClient.builder().requestFactory(requestFactory()), accessToken, baseUrl);
+                                     @Value("${app.base-url:http://localhost:8080}") String baseUrl,
+                                     @Value("${MP_PUBLIC_KEY:}") String publicKey) {
+        this(RestClient.builder().requestFactory(requestFactory()), accessToken, baseUrl, publicKey);
     }
 
-    // Para los tests: permite conectar un servidor de mentira al builder
+    // Para los tests: permite conectar un servidor de mentira al builder. Sin clave pública se paga con la
+    // página de Mercado Pago (Checkout Pro)
     MercadoPagoPaymentGateway(RestClient.Builder builder, String accessToken, String baseUrl) {
+        this(builder, accessToken, baseUrl, "");
+    }
+
+    MercadoPagoPaymentGateway(RestClient.Builder builder, String accessToken, String baseUrl, String publicKey) {
         if (accessToken == null || accessToken.isBlank()) {
             throw new IllegalStateException("payment.gateway=mercadopago pero falta la variable de entorno "
                     + "MP_ACCESS_TOKEN. Configurala o sacá PAYMENT_GATEWAY para usar el servicio simulado.");
@@ -71,6 +79,11 @@ public class MercadoPagoPaymentGateway implements PaymentGateway {
             // Mercado Pago no acepta dominios locales en las URLs de retorno (ver "Configurar URLs de retorno")
             log.warn("APP_BASE_URL es {}: Mercado Pago no acepta localhost en las URLs de retorno. "
                     + "Usá un nombre como http://mnatural.localtest.me:8080", base);
+        }
+        this.publicKey = publicKey == null || publicKey.isBlank() ? null : publicKey.trim();
+        if (this.publicKey == null) {
+            log.info("Falta MP_PUBLIC_KEY: los pagos se hacen en la página de Mercado Pago (Checkout Pro). "
+                    + "Con la clave pública se paga con un formulario de tarjeta dentro de la aplicación");
         }
         this.returnUrl = base + "/payments/return";
         // Con una dirección que no es https (la compu local), Mercado Pago rechaza auto_return:
@@ -146,6 +159,71 @@ public class MercadoPagoPaymentGateway implements PaymentGateway {
         log.info("Pago de Mercado Pago creado: reserva {}, {} {}, referencia {}",
                 booking.getId(), amount, CURRENCY, reference);
         return new PaymentCreation(reference, paymentUrl);
+    }
+
+    // Con la clave pública el turista paga con el formulario de tarjeta de Mercado Pago dentro de la aplicación;
+    // sin ella, en la página de Mercado Pago
+    @Override
+    public CheckoutMode checkoutMode() {
+        return publicKey != null ? CheckoutMode.CARD_FORM : CheckoutMode.REDIRECT;
+    }
+
+    @Override
+    public String publicKey() {
+        return publicKey;
+    }
+
+    // POST /v1/payments con el token que genera el formulario de tarjeta de Mercado Pago en el navegador (el número de la
+    // tarjeta nunca pasa por la aplicación). X-Idempotency-Key es nuestra referencia: si el pedido se reintenta, Mercado
+    // Pago no cobra dos veces. El resultado se traduce igual que al consultar un pago
+    @Override
+    public GatewayPaymentStatus payWithCard(Booking booking, String externalReference, BigDecimal amount,
+                                            CardPaymentRequest request) {
+        if (checkoutMode() != CheckoutMode.CARD_FORM) {
+            throw new PaymentGatewayException("Falta MP_PUBLIC_KEY: no se puede cobrar con el formulario de tarjeta");
+        }
+        if (request.token() == null || request.paymentMethodId() == null) {
+            throw new PaymentGatewayException("El formulario de tarjeta no mandó los datos del pago");
+        }
+        Map<String, Object> payer = new LinkedHashMap<>();
+        payer.put("email", request.payerEmail());
+        if (request.identificationNumber() != null) {
+            Map<String, Object> identification = new LinkedHashMap<>();
+            identification.put("type", request.identificationType() != null ? request.identificationType() : "CI");
+            identification.put("number", request.identificationNumber());
+            payer.put("identification", identification);
+        }
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("transaction_amount", amount);
+        body.put("token", request.token());
+        body.put("description", "Reserva: " + booking.getActivitySchedule().getActivity().getName()
+                + " (" + booking.getParticipantCount() + " participantes)");
+        body.put("installments", request.installments() != null ? request.installments() : 1);
+        body.put("payment_method_id", request.paymentMethodId());
+        if (request.issuerId() != null) {
+            body.put("issuer_id", request.issuerId());
+        }
+        body.put("external_reference", externalReference);
+        body.put("payer", payer);
+        if (webhookUrl != null) {
+            body.put("notification_url", webhookUrl);
+        }
+
+        Map<?, ?> response = call("cobrar con tarjeta", () -> restClient.post()
+                .uri("/v1/payments")
+                .header("X-Idempotency-Key", externalReference)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(body)
+                .retrieve()
+                .body(Map.class));
+        if (response == null) {
+            throw new PaymentGatewayException("Respuesta inesperada de Mercado Pago al cobrar con tarjeta");
+        }
+        GatewayPaymentStatus result = toStatus(response);
+        log.info("Cobro con tarjeta en Mercado Pago: reserva {}, {} {}, referencia {}, estado {}",
+                booking.getId(), amount, CURRENCY, externalReference, result.status());
+        return result;
     }
 
     // GET /v1/payments/{id}: solo se usa para saber a qué pago nuestro corresponde un aviso (webhook).

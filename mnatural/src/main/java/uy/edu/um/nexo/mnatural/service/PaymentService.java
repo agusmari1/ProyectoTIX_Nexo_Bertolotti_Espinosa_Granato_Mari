@@ -13,6 +13,8 @@ import uy.edu.um.nexo.mnatural.entities.PaymentStatus;
 import uy.edu.um.nexo.mnatural.entities.PaymentTransaction;
 import uy.edu.um.nexo.mnatural.entities.PaymentType;
 import uy.edu.um.nexo.mnatural.exception.PaymentException;
+import uy.edu.um.nexo.mnatural.payment.CardPaymentRequest;
+import uy.edu.um.nexo.mnatural.payment.CheckoutMode;
 import uy.edu.um.nexo.mnatural.payment.GatewayPaymentStatus;
 import uy.edu.um.nexo.mnatural.payment.GatewayRefundResult;
 import uy.edu.um.nexo.mnatural.payment.PaymentCreation;
@@ -26,6 +28,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 
 // El pago es en dos pasos:
 //   1. startPayment: registra el intento en PENDING y devuelve la URL donde paga el turista;
@@ -169,6 +172,70 @@ public class PaymentService {
         log.warn("La reserva {} está {} y tiene un pago aprobado: se reembolsa", bookingId, booking.getStatus());
         requestRefund(booking, charge, charge.getAmount(), true);
         return true;
+    }
+
+    // true si el turista paga con un formulario de tarjeta dentro de la aplicación (en vez de la página del servicio)
+    public boolean usesCardForm() {
+        return paymentGateway.checkoutMode() == CheckoutMode.CARD_FORM;
+    }
+
+    // Clave pública para armar el formulario de tarjeta del servicio. null si no hay: se usa el formulario propio
+    public String checkoutPublicKey() {
+        return paymentGateway.publicKey();
+    }
+
+    // Cobra la reserva con el formulario de tarjeta. Igual que startPayment, abre un intento nuevo (con attemptNumber + 1);
+    // la diferencia es que acá el cobro se hace en el momento y el intento ya queda con su resultado.
+    // El intento se guarda ANTES de cobrar, así si el servicio avisa (webhook) antes de que termine este pedido, ya existe.
+    // Si el servicio no responde no se sabe si cobró: el intento queda PENDING con su referencia y se vuelve a consultar
+    // (al abrir la reserva o por aviso); nunca se da por pagado ni por fallado. Este servicio no confirma la reserva
+    @Transactional
+    public PaymentTransaction payWithCard(Long bookingId, Long touristId, CardPaymentRequest request) {
+        if (!usesCardForm()) {
+            throw new PaymentException("Este servicio de pagos no usa el formulario de tarjeta.");
+        }
+        Booking booking = paymentTransactionRepository.findBookingForUpdate(bookingId)
+                .orElseThrow(() -> new PaymentException("La reserva no existe."));
+        checkOwner(booking, touristId);
+        LocalDateTime now = LocalDateTime.now();
+        checkPayable(booking, now);
+
+        for (PaymentTransaction previous : paymentTransactionRepository.findByBookingIdAndTypeAndStatus(
+                bookingId, PaymentType.CHARGE, PaymentStatus.PENDING)) {
+            refreshStatus(previous, now);
+        }
+        if (paymentTransactionRepository.existsByBookingIdAndTypeAndStatus(
+                bookingId, PaymentType.CHARGE, PaymentStatus.APPROVED)) {
+            throw new PaymentException("Esta reserva ya tiene un pago aprobado.");
+        }
+
+        PaymentTransaction transaction = new PaymentTransaction();
+        transaction.setBooking(booking);
+        transaction.setAmount(booking.getTotalAmount());
+        transaction.setType(PaymentType.CHARGE);
+        transaction.setStatus(PaymentStatus.PENDING);
+        transaction.setAttemptNumber((int) paymentTransactionRepository
+                .countByBookingIdAndType(bookingId, PaymentType.CHARGE) + 1);
+        // "MN-" para reconocerla en los avisos del servicio (ver PaymentGateway.findExternalReference)
+        transaction.setExternalReference("MN-" + bookingId + "-" + UUID.randomUUID());
+        extendHold(booking, now);
+        paymentTransactionRepository.save(transaction);
+
+        // Si el formulario no pidió el correo, se usa el del turista
+        CardPaymentRequest payment = request.payerEmail() != null ? request
+                : request.withPayerEmail(booking.getTourist().getEmail());
+        try {
+            GatewayPaymentStatus result = paymentGateway.payWithCard(booking, transaction.getExternalReference(),
+                    transaction.getAmount(), payment);
+            applyResult(transaction, result, now);
+        } catch (RuntimeException e) {
+            log.warn("No se pudo cobrar con tarjeta la reserva {} (intento {}): {}",
+                    bookingId, transaction.getAttemptNumber(), e.getMessage());
+            transaction.setFailureReason("No pudimos confirmar el pago con el servicio de pagos. "
+                    + "Si se te cobró, se va a reflejar en unos minutos; si no, probá de nuevo.");
+            extendHold(booking, now);
+        }
+        return transaction;
     }
 
     // Consulta los intentos que siguen en proceso. Lo usa la pantalla de la reserva: si el turista pagó pero
@@ -384,6 +451,12 @@ public class PaymentService {
             return;
         }
 
+        applyResult(transaction, result, now);
+    }
+
+    // Aplica el resultado informado por el servicio de pagos a un intento (venga de consultar el pago o de cobrarlo)
+    private void applyResult(PaymentTransaction transaction, GatewayPaymentStatus result, LocalDateTime now) {
+        Booking booking = transaction.getBooking();
         PaymentStatus status = result.status();
         String failureReason = status == PaymentStatus.APPROVED ? null : result.failureReason();
         // Un aprobado por otro monto o en otra moneda es un resultado inesperado: no se da por pagado

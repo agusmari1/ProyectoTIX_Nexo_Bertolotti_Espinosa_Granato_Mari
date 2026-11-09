@@ -94,7 +94,10 @@
                 del <span th:text="${#temporals.format(payment.heldUntil, 'dd/MM/yyyy')}"></span>.
                 Si no se paga antes, la reserva se cancela y los lugares se liberan.
             </p>
-            <form th:action="@{/payments/bookings/{id}/start(id=${payment.bookingId})}" method="post">
+            <!-- Con formulario de tarjeta se paga en una pantalla de la aplicación; si no, en la página del servicio -->
+            <a th:if="${cardForm}" th:href="@{/payments/bookings/{id}/pay(id=${payment.bookingId})}" class="btn btn-success"
+               th:text="${#lists.isEmpty(payment.attempts)} ? 'Pagar' : 'Intentar pagar de nuevo'">Pagar</a>
+            <form th:unless="${cardForm}" th:action="@{/payments/bookings/{id}/start(id=${payment.bookingId})}" method="post">
                 <button type="submit" class="btn btn-success"
                         th:text="${#lists.isEmpty(payment.attempts)} ? 'Pagar' : 'Intentar pagar de nuevo'">Pagar</button>
             </form>
