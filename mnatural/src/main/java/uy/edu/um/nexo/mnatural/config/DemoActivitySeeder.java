@@ -193,7 +193,8 @@ public class DemoActivitySeeder implements CommandLineRunner {
         boolean cancellable = demo.cancellationHours() != null;
         activity.setCancellationAllowed(cancellable);
         if (cancellable) {
-            activity.setCancellationCutoffHours(demo.cancellationHours());
+            // El plazo de cancelación se guarda en minutos
+            activity.setCancellationCutoffMinutes(demo.cancellationHours() * 60);
             activity.setRefundPercentage(new BigDecimal(demo.refundPercentage()));
         }
         activity.setStatus(ActivityStatus.PUBLISHED);

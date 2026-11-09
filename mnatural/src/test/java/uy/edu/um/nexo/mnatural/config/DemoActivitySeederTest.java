@@ -75,7 +75,7 @@ class DemoActivitySeederTest {
             assertThat(a.getDurationMinutes()).isPositive();
             // Si admite cancelaciones, trae plazo y porcentaje completos
             if (a.isCancellationAllowed()) {
-                assertThat(a.getCancellationCutoffHours()).isNotNull();
+                assertThat(a.getCancellationCutoffMinutes()).isNotNull();
                 assertThat(a.getRefundPercentage()).isNotNull();
             }
         });
