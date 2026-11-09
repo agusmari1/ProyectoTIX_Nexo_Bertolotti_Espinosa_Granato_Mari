@@ -2,6 +2,7 @@ package uy.edu.um.nexo.mnatural.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AccountStatusUserDetailsChecker;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.LockedException;
@@ -47,6 +48,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/", "/login", "/registro/**", "/actividades/**", "/error",
                                 "/css/**", "/js/**", "/images/**", "/img/**").permitAll()
+                        // API pública de solo lectura (ESPECIFICACION.md, sección 9)
+                        .requestMatchers(HttpMethod.GET, "/api/**").permitAll()
                         .requestMatchers("/admin/**").hasRole(Role.ADMIN.name())
                         .requestMatchers("/prestador/**").hasRole(Role.PROVIDER.name())
                         // Espacio del prestador (actividades de Camila)
