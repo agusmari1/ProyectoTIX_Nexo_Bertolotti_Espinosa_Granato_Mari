@@ -88,6 +88,8 @@
                     </div>
                 </div>
             </div>
+
+            <div th:replace="~{fragments/weather :: forecast(${activity.department}, ${schedules.![schedule.startDateTime]})}"></div>
         </div>
 
         <!-- Próximas fechas: los lugares libres se calculan con BookingService -->

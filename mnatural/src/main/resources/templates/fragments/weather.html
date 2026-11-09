@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<!--/*
+    Pronóstico del tiempo para el detalle de una actividad. Se incluye con UNA línea:
+    <div th:replace="~{fragments/weather :: forecast(${activity.department}, ${schedules.![schedule.startDateTime]})}"></div>
+    Si no hay pronóstico (servicio caído, fechas fuera de rango) no se muestra nada: WeatherService nunca lanza errores
+*/-->
+<th:block th:fragment="forecast(department, startTimes)">
+    <th:block th:with="days=${@weatherService.forecastsFor(department, startTimes)}">
+        <div class="card mb-4" th:if="${!#lists.isEmpty(days)}">
+            <div class="card-header">Pronóstico del tiempo</div>
+            <div class="card-body">
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 py-2 border-bottom"
+                     th:each="day : ${days}">
+                    <strong th:text="${#temporals.format(day.date(), 'dd/MM/yyyy')}">15/01/2027</strong>
+                    <span th:text="${day.description() != null} ? ${day.description()} : ''">Despejado</span>
+                    <span class="text-muted small"
+                          th:text="${day.minTemperature()} + '° / ' + ${day.maxTemperature()} + '°'">18° / 28°</span>
+                    <span class="text-muted small" th:if="${day.rainProbability() != null}"
+                          th:text="'Lluvia: ' + ${day.rainProbability()} + ' %'">Lluvia: 20 %</span>
+                </div>
+                <div class="small text-muted mt-2">
+                    Pronóstico para la capital del departamento. Datos de
+                    <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo.com</a>.
+                </div>
+            </div>
+        </div>
+    </th:block>
+</th:block>
+
+</body>
+</html>
