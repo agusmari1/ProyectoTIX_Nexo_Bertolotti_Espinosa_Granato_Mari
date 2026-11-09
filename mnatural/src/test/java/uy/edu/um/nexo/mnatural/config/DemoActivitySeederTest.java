@@ -84,8 +84,31 @@ class DemoActivitySeederTest {
         verify(scheduleRepository, times(15 * DemoActivitySeeder.SCHEDULES.length)).save(schedules.capture());
         assertThat(schedules.getAllValues()).allSatisfy(s -> {
             assertThat(s.getStartDateTime()).isAfter(LocalDateTime.now());
-            assertThat(s.getCapacity()).isEqualTo(DemoActivitySeeder.CAPACITY);
+            assertThat(s.getCapacity()).isIn(java.util.Arrays.stream(DemoActivitySeeder.CAPACITIES).boxed().toList());
         });
+    }
+
+    @Test
+    void everyActivityHasItsOwnCapacityAndThereIsOneForEachDemoActivity() {
+        assertThat(DemoActivitySeeder.CAPACITIES).hasSize(DemoActivitySeeder.DEMOS.size());
+        assertThat(java.util.Arrays.stream(DemoActivitySeeder.CAPACITIES).distinct().count()).isGreaterThan(5);
+
+        seeder.run();
+
+        ArgumentCaptor<ActivitySchedule> schedules = ArgumentCaptor.forClass(ActivitySchedule.class);
+        verify(scheduleRepository, times(15 * DemoActivitySeeder.SCHEDULES.length)).save(schedules.capture());
+        // El primer horario de la primera actividad lleva la capacidad de la primera
+        assertThat(schedules.getAllValues().getFirst().getCapacity()).isEqualTo(DemoActivitySeeder.CAPACITIES[0]);
+    }
+
+    @Test
+    void everyDemoActivityHasItsOwnPhotoInTheProject() {
+        for (DemoActivitySeeder.Demo demo : DemoActivitySeeder.DEMOS) {
+            String file = "static/img/actividades/" + uy.edu.um.nexo.mnatural.service.ActivityPhotos.slug(demo.name()) + ".jpg";
+
+            assertThat(new org.springframework.core.io.ClassPathResource(file).exists())
+                    .as("falta la foto de \"" + demo.name() + "\": " + file).isTrue();
+        }
     }
 
     @Test

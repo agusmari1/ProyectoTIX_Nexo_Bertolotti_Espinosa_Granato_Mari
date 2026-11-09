@@ -46,7 +46,9 @@ public class DemoActivitySeeder implements CommandLineRunner {
 
     // Horarios que se crean para cada actividad: (días desde hoy, hora)
     static final int[][] SCHEDULES = {{3, 10}, {7, 15}, {14, 10}, {21, 16}};
-    static final int CAPACITY = 12;
+    // Cupos de cada horario de la actividad, en el mismo orden que DEMOS (una cabalgata o un velero llevan menos
+    // gente que una visita guiada o un día en las termas)
+    static final int[] CAPACITIES = {10, 8, 14, 12, 10, 8, 20, 12, 10, 30, 12, 25, 10, 15, 8};
 
     record Demo(String name, String description, String address, Department department, String locality,
                 int durationMinutes, String price, Integer minAge, String requirements, String equipment,
@@ -158,11 +160,12 @@ public class DemoActivitySeeder implements CommandLineRunner {
         Map<String, ActivityType> types = new HashMap<>();
 
         int created = 0;
-        for (Demo demo : DEMOS) {
+        for (int i = 0; i < DEMOS.size(); i++) {
+            Demo demo = DEMOS.get(i);
             if (existingNames.contains(demo.name())) {
                 continue;
             }
-            createActivity(business, demo, types);
+            createActivity(business, demo, CAPACITIES[i], types);
             created++;
         }
         log.info("Actividades de demostración: {} creadas, {} ya existían", created, DEMOS.size() - created);
@@ -176,7 +179,7 @@ public class DemoActivitySeeder implements CommandLineRunner {
         return null;
     }
 
-    private void createActivity(Business business, Demo demo, Map<String, ActivityType> typeCache) {
+    private void createActivity(Business business, Demo demo, int capacity, Map<String, ActivityType> typeCache) {
         Activity activity = new Activity();
         activity.setBusiness(business);
         activity.setName(demo.name());
@@ -208,7 +211,7 @@ public class DemoActivitySeeder implements CommandLineRunner {
             ActivitySchedule schedule = new ActivitySchedule();
             schedule.setActivity(saved);
             schedule.setStartDateTime(LocalDateTime.of(today.plusDays(when[0]), java.time.LocalTime.of(when[1], 0)));
-            schedule.setCapacity(CAPACITY);
+            schedule.setCapacity(capacity);
             scheduleRepository.save(schedule);
         }
     }
