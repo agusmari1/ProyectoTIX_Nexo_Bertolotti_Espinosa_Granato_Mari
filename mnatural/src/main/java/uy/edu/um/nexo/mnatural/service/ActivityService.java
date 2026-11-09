@@ -107,12 +107,56 @@ public class ActivityService {
 
         Activity activity = new Activity();
         activity.setBusiness(business);
-        activity.setActivityTypes(types);
         activity.setName(dto.getName().trim());
-        activity.setDescription(dto.getDescription().trim());
         activity.setAddress(dto.getAddress().trim());
         activity.setDepartment(dto.getDepartment());
         activity.setLocality(dto.getLocality().trim());
+        applyEditableFields(activity, dto, types);
+        // No requiere aprobación del administrador (especificación, sección 6)
+        activity.setStatus(ActivityStatus.PUBLISHED);
+        return activityRepository.save(activity);
+    }
+
+    // El prestador edita su actividad: descripción, precio, duración, edad mínima, requisitos, equipamiento,
+    // límite de reserva, política de cancelación y tipos. El nombre, el emprendimiento y el lugar no cambian.
+    // Si cambia el precio, las reservas que ya existen mantienen el total con el que se hicieron (Booking.totalAmount)
+    @Transactional
+    public Activity update(String email, Long activityId, ActivityDTO dto) {
+        Activity activity = ownActivity(currentProvider(email), activityId);
+        Set<ActivityType> types = resolveTypes(dto.getActivityTypeIds());
+        validateActivity(dto);
+        applyEditableFields(activity, dto, types);
+        return activityRepository.save(activity);
+    }
+
+    // Suspende toda la actividad: deja de verse en el portal y de poder reservarse (el portal y las reservas solo
+    // aceptan PUBLISHED) y se suspenden todos sus horarios futuros con la misma lógica de siempre
+    // (suspendSchedule: cancela las reservas y reembolsa el 100 %). Devuelve la suma de todos los horarios
+    @Transactional
+    public SuspensionResult suspendActivity(String email, Long activityId) {
+        Activity activity = ownActivity(currentProvider(email), activityId);
+        activity.setStatus(ActivityStatus.SUSPENDED);
+
+        int cancelled = 0;
+        int refunded = 0;
+        int failed = 0;
+        LocalDateTime now = LocalDateTime.now();
+        for (ActivitySchedule schedule : activityRepository.findSchedulesOf(activity.getId())) {
+            if (schedule.getStatus() == ScheduleStatus.SCHEDULED && schedule.getStartDateTime().isAfter(now)) {
+                SuspensionResult result = suspendSchedule(email, activityId, schedule.getId());
+                cancelled += result.cancelledBookings();
+                refunded += result.refunded();
+                failed += result.failedRefunds();
+            }
+        }
+        activityRepository.save(activity);
+        return new SuspensionResult(cancelled, refunded, failed);
+    }
+
+    // Los datos que el prestador puede cambiar después de publicar (los usan el alta y la edición)
+    private void applyEditableFields(Activity activity, ActivityDTO dto, Set<ActivityType> types) {
+        activity.setActivityTypes(types);
+        activity.setDescription(dto.getDescription().trim());
         activity.setDurationMinutes(dto.getDurationMinutes());
         activity.setPricePerPerson(dto.getPricePerPerson());
         activity.setMinAge(dto.getMinAge());
@@ -124,10 +168,10 @@ public class ActivityService {
         if (dto.isCancellationAllowed()) {
             activity.setCancellationCutoffHours(dto.getCancellationCutoffHours());
             activity.setRefundPercentage(dto.getRefundPercentage());
+        } else {
+            activity.setCancellationCutoffHours(null);
+            activity.setRefundPercentage(null);
         }
-        // No requiere aprobación del administrador (especificación, sección 6)
-        activity.setStatus(ActivityStatus.PUBLISHED);
-        return activityRepository.save(activity);
     }
 
     @Transactional

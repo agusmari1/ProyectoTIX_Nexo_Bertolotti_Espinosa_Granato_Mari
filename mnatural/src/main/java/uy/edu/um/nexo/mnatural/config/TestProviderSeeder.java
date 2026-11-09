@@ -3,6 +3,7 @@ package uy.edu.um.nexo.mnatural.config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,8 +20,11 @@ import java.time.LocalDate;
 
 // Crea al arrancar tres prestadores de prueba (uno aprobado, uno rechazado y uno pendiente),
 // cada uno solo si todavía no existe, para probar el login y la pantalla del admin.
-// TODO: sacar este seeder antes de entregar: crea usuarios con una contraseña conocida.
+// Crea usuarios con una contraseña conocida, por eso está APAGADO por defecto: solo corre si se pide
+// explícitamente con app.seed.test-providers=true (por ejemplo, agregando
+// --app.seed.test-providers=true a los argumentos del programa). Nunca activarlo en una entrega.
 @Component
+@ConditionalOnProperty(name = "app.seed.test-providers", havingValue = "true")
 public class TestProviderSeeder implements CommandLineRunner {
 
     private static final Logger log = LoggerFactory.getLogger(TestProviderSeeder.class);
