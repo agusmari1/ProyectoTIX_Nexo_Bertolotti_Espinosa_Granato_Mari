@@ -30,6 +30,11 @@ public final class LandingPage {
         return !HOME.equals(urlFor(authentication));
     }
 
+    // Para mostrarle el acceso a "Mis reservas" en la página de inicio
+    public static boolean isTourist(Authentication authentication) {
+        return hasRole(authentication, Role.TOURIST);
+    }
+
     private static boolean hasRole(Authentication authentication, Role role) {
         return authentication != null && authentication.getAuthorities().stream()
                 .anyMatch(authority -> authority.getAuthority().equals("ROLE_" + role.name()));
