@@ -9,6 +9,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
@@ -19,6 +21,7 @@ import uy.edu.um.nexo.mnatural.entities.PaymentTransaction;
 import uy.edu.um.nexo.mnatural.entities.Tourist;
 import uy.edu.um.nexo.mnatural.entities.User;
 import uy.edu.um.nexo.mnatural.exception.PaymentException;
+import uy.edu.um.nexo.mnatural.payment.CardPaymentRequest;
 import uy.edu.um.nexo.mnatural.payment.PaymentStart;
 import uy.edu.um.nexo.mnatural.repository.UserRepository;
 import uy.edu.um.nexo.mnatural.service.BookingCancellationService;
@@ -31,14 +34,19 @@ import uy.edu.um.nexo.mnatural.service.PaymentService;
 //   GET  /payments/bookings/{id}        resumen de la reserva, sus intentos y el botón de pagar
 //   GET  /payments/bookings/{id}/qr.png QR de la reserva confirmada
 //   POST /payments/bookings/{id}/start  abre un intento y manda al turista a la página de pago
+//   GET  /payments/bookings/{id}/pay    pantalla de pago con formulario de tarjeta (si el servicio lo usa)
+//   POST /payments/bookings/{id}/card   cobra con el formulario de tarjeta y devuelve el resultado en JSON
 //   GET  /payments/return               adonde vuelve el turista después de pagar: consulta el resultado
 //   POST /payments/bookings/{id}/cancel cancela la reserva confirmada según la política de la actividad
 // PaymentService verifica en cada pedido que la reserva sea del turista logueado
+import java.util.Map;
+
 @Controller
 @RequestMapping("/payments")
 public class PaymentController {
 
     private static final String BOOKING_VIEW = "payments/booking";
+    private static final String PAY_VIEW = "payments/pay";
     private static final String ERROR_VIEW = "payments/error";
 
     private final PaymentService paymentService;
@@ -73,6 +81,8 @@ public class PaymentController {
             payment = paymentService.getBookingPayment(bookingId, touristId);
         }
         model.addAttribute("payment", payment);
+        // Con formulario de tarjeta, "Pagar" lleva a la pantalla de pago; si no, se manda al turista a la página del servicio
+        model.addAttribute("cardForm", paymentService.usesCardForm());
         return BOOKING_VIEW;
     }
 
@@ -100,6 +110,55 @@ public class PaymentController {
             redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
         }
         return "redirect:/payments/bookings/" + bookingId;
+    }
+
+    // Pantalla de pago con el formulario de tarjeta. Con la clave pública de Mercado Pago es el formulario de Mercado Pago
+    // (Card Payment Brick); si no, el formulario propio de prueba del pago simulado
+    @GetMapping("/bookings/{bookingId}/pay")
+    public String payForm(@PathVariable("bookingId") Long bookingId, Authentication authentication, Model model,
+                          RedirectAttributes redirectAttributes) {
+        Long touristId = touristId(authentication);
+        // Por si el turista ya pagó antes y no llegó a verse
+        paymentService.syncPendingPayments(bookingId, touristId);
+        BookingPaymentDTO payment = paymentService.getBookingPayment(bookingId, touristId);
+        if (!paymentService.usesCardForm() || !payment.isPayable()) {
+            return "redirect:/payments/bookings/" + bookingId;
+        }
+        model.addAttribute("payment", payment);
+        model.addAttribute("publicKey", paymentService.checkoutPublicKey());
+        return PAY_VIEW;
+    }
+
+    // Cobra con el formulario de tarjeta. Contesta siempre con un JSON { status, message, redirectUrl } y la pantalla
+    // muestra el mensaje. Si se aprueba, se confirma la reserva (o, si ya venció, se devuelve el dinero)
+    @PostMapping(value = "/bookings/{bookingId}/card", consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> payWithCard(@PathVariable("bookingId") Long bookingId,
+                                                           @RequestBody Map<String, Object> body,
+                                                           Authentication authentication) {
+        String redirectUrl = "/payments/bookings/" + bookingId;
+        try {
+            PaymentTransaction transaction = paymentService.payWithCard(bookingId, touristId(authentication),
+                    CardPaymentRequest.fromJson(body));
+            String message;
+            switch (transaction.getStatus()) {
+                case APPROVED -> message = paymentConfirmationService.confirmOrRefund(bookingId)
+                        == PaymentConfirmationService.Outcome.CONFIRMED
+                        ? "¡Pago aprobado! Tu reserva está confirmada."
+                        : "Recibimos tu pago, pero la reserva ya había vencido y no se pudo confirmar. "
+                        + "Te vamos a devolver el dinero.";
+                case PENDING -> message = transaction.getFailureReason() != null ? transaction.getFailureReason()
+                        : "Tu pago está en proceso. Volvé a la reserva en unos minutos para ver si se acreditó.";
+                default -> message = (transaction.getFailureReason() != null ? transaction.getFailureReason()
+                        : "El pago no se pudo completar.") + " Tu reserva sigue pendiente: podés intentar de nuevo.";
+            }
+            return ResponseEntity.ok(Map.of("status", transaction.getStatus().name(), "message", message,
+                    "redirectUrl", redirectUrl));
+        } catch (PaymentException e) {
+            return ResponseEntity.badRequest().body(Map.of("status", "ERROR", "message", e.getMessage(),
+                    "redirectUrl", redirectUrl));
+        }
     }
 
     // Si la política no lo permite (no admite cancelación o ya pasó el plazo), se muestra el motivo y no cambia nada

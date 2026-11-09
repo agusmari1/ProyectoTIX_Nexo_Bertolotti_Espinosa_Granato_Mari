@@ -21,6 +21,7 @@ El pago se hace en dos pasos: primero se registra el intento como `PENDING` y se
 |---|---|
 | `PAYMENT_GATEWAY=mercadopago` | Activa Mercado Pago. Si no está, se usa el simulado. |
 | `MP_ACCESS_TOKEN` | Access Token **de prueba** de Mercado Pago. Va solo como variable de entorno, **nunca** en el código, en `application.properties` ni en el repo. La app no lo escribe en el log. |
+| `MP_PUBLIC_KEY` | (Opcional) Clave pública **de prueba** de la misma aplicación de Mercado Pago. Con ella el turista paga en un formulario de tarjeta **dentro de la app** en vez de en la página de Mercado Pago (ver "Formulario de tarjeta"). No sirve para cobrar y puede verse en la página, pero igual va solo como variable de entorno. |
 | `APP_BASE_URL` | Dirección con la que se entra a la app. Con ella se arman las URLs a las que Mercado Pago devuelve al turista. |
 | `PAYMENT_SIMULATED_RESULT` | (Opcional, solo con el simulado) Resultado forzado: `APPROVED`, `PENDING`, `REJECTED` o `ERROR`. |
 
@@ -61,6 +62,40 @@ Como esa dirección no es `https`, Mercado Pago no permite la vuelta automática
 | `OTHE` | Rechazado |
 | `CONT` | Pendiente |
 | `FUND` | Rechazado por fondos insuficientes |
+
+### Formulario de tarjeta dentro de la aplicación
+
+Al tocar **Pagar** en la pantalla de la reserva (no al tocar Reservar), el turista va a `/payments/bookings/{id}/pay`,
+una pantalla de la aplicación con el formulario de tarjeta. Cuál se muestra depende de la configuración:
+
+| Configuración | Formulario | Cobro |
+|---|---|---|
+| Pago simulado (por defecto) | Uno propio, **de prueba**, con la advertencia de no ingresar una tarjeta real | No se cobra nada |
+| `PAYMENT_GATEWAY=mercadopago` + `MP_ACCESS_TOKEN` + `MP_PUBLIC_KEY` | El de Mercado Pago (Card Payment Brick): pregunta tarjeta de crédito o débito y pide los datos | Mercado Pago (sandbox) |
+| `PAYMENT_GATEWAY=mercadopago` + `MP_ACCESS_TOKEN`, **sin** `MP_PUBLIC_KEY` | Ninguno: el turista paga en la página de Mercado Pago (Checkout Pro), como antes | Mercado Pago (sandbox) |
+
+- El formulario manda el pago a `POST /payments/bookings/{id}/card` y la pantalla muestra el resultado. Si se aprueba, la
+  reserva se confirma; si se rechaza o queda en proceso, la reserva sigue pendiente y se puede reintentar.
+- Con Mercado Pago la tarjeta se convierte en un **token en el navegador**: el número nunca llega a nuestro servidor. La
+  aplicación cobra con `POST /v1/payments` y ese token, usando nuestra referencia como clave de idempotencia para que un
+  reintento no cobre dos veces.
+- **Nunca se guarda el número de la tarjeta ni el código de seguridad** (ni en la base ni en el log): solo la marca y los
+  últimos 4 dígitos.
+- Si Mercado Pago no responde al cobrar, no se sabe si cobró: el intento queda **pendiente** con su referencia y se vuelve
+  a consultar al abrir la reserva (o por aviso, ver más abajo). Nunca se da por pagado ni por fallado.
+- Pago simulado: el **nombre del titular** elige el resultado, igual que en el sandbox de Mercado Pago (`APRO` aprueba,
+  `OTHE` rechaza, `FUND` rechaza por fondos insuficientes y `CONT` queda pendiente; cualquier otro nombre aprueba).
+  Tarjeta de prueba: `4509 9535 6623 3704`, vencimiento `11/30`, código `123`.
+
+Para usar el formulario de Mercado Pago, además del token hace falta la **clave pública de prueba** de la misma aplicación:
+
+```powershell
+$env:PAYMENT_GATEWAY = "mercadopago"
+$env:MP_ACCESS_TOKEN = "<tu token de prueba>"
+$env:MP_PUBLIC_KEY   = "<tu clave pública de prueba>"
+$env:APP_BASE_URL    = "http://mnatural.localtest.me:8080"
+.\mvnw spring-boot:run
+```
 
 ### Avisos de Mercado Pago (webhook)
 
