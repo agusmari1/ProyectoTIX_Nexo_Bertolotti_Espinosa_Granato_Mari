@@ -45,7 +45,7 @@ public class Booking {
     @Column(nullable = false)
     private BookingStatus status = BookingStatus.PENDING;
 
-    // Se genera al confirmarse la reserva, por eso puede quedar vacío mientras está pendiente
+    // Se genera al crear la reserva, pero solo vale y se muestra una vez confirmada
     @Column(nullable = true, unique = true)
     private String bookingCode;
 
