@@ -26,7 +26,7 @@ public class SmtpBookingMailer implements BookingMailer {
     private final JavaMailSender mailSender;
     private final String from;
 
-    public SmtpBookingMailer(JavaMailSender mailSender, @Value("${spring.mail.username:}") String from) {
+    public SmtpBookingMailer(JavaMailSender mailSender, @Value("${app.mail.from:${spring.mail.username:}}") String from) {
         this.mailSender = mailSender;
         this.from = from;
     }

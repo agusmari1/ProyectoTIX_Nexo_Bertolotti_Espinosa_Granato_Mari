@@ -1,5 +1,7 @@
 package uy.edu.um.nexo.mnatural.service;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,13 +29,25 @@ public class TouristService {
     private final UserRepository userRepository;
     private final TouristRepository touristRepository;
     private final PasswordEncoder passwordEncoder;
+    private final ApplicationEventPublisher eventPublisher;
 
+    // Este es el que usa Spring. El correo de bienvenida sale recién cuando se confirma la transacción (EmailNotifier)
+    @Autowired
     public TouristService(UserRepository userRepository,
                           TouristRepository touristRepository,
-                          PasswordEncoder passwordEncoder) {
+                          PasswordEncoder passwordEncoder,
+                          ApplicationEventPublisher eventPublisher) {
         this.userRepository = userRepository;
         this.touristRepository = touristRepository;
         this.passwordEncoder = passwordEncoder;
+        this.eventPublisher = eventPublisher;
+    }
+
+    // Sin avisos por correo (para los tests que no lo necesitan)
+    public TouristService(UserRepository userRepository,
+                          TouristRepository touristRepository,
+                          PasswordEncoder passwordEncoder) {
+        this(userRepository, touristRepository, passwordEncoder, event -> { });
     }
 
     @Transactional
@@ -57,7 +71,9 @@ public class TouristService {
         tourist.setPhoneNumber(blankToNull(dto.getPhoneNumber()));
         tourist.setExceptionalCondition(blankToNull(dto.getExceptionalCondition()));
         tourist.setLanguage(languageFor(tourist.getCountry()));
-        return touristRepository.save(tourist);
+        Tourist saved = touristRepository.save(tourist);
+        eventPublisher.publishEvent(new EmailEvents.TouristRegistered(saved.getName(), saved.getEmail()));
+        return saved;
     }
 
     // El turista logueado. Solo los turistas pueden reservar

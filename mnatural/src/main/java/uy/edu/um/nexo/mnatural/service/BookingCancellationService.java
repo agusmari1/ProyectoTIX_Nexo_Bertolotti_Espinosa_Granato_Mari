@@ -2,10 +2,13 @@ package uy.edu.um.nexo.mnatural.service;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import uy.edu.um.nexo.mnatural.entities.Booking;
 import uy.edu.um.nexo.mnatural.entities.BookingStatus;
+import uy.edu.um.nexo.mnatural.entities.PaymentStatus;
 import uy.edu.um.nexo.mnatural.entities.PaymentTransaction;
 import uy.edu.um.nexo.mnatural.exception.PaymentException;
 import uy.edu.um.nexo.mnatural.repository.PaymentTransactionRepository;
@@ -31,11 +34,22 @@ public class BookingCancellationService {
 
     private final PaymentTransactionRepository paymentTransactionRepository;
     private final PaymentService paymentService;
+    private final ApplicationEventPublisher eventPublisher;
 
+    // Este es el que usa Spring. Los correos de cancelación salen recién cuando se confirma la transacción (EmailNotifier)
+    @Autowired
     public BookingCancellationService(PaymentTransactionRepository paymentTransactionRepository,
-                                      PaymentService paymentService) {
+                                      PaymentService paymentService,
+                                      ApplicationEventPublisher eventPublisher) {
         this.paymentTransactionRepository = paymentTransactionRepository;
         this.paymentService = paymentService;
+        this.eventPublisher = eventPublisher;
+    }
+
+    // Sin avisos por correo (para los tests que no lo necesitan)
+    public BookingCancellationService(PaymentTransactionRepository paymentTransactionRepository,
+                                      PaymentService paymentService) {
+        this(paymentTransactionRepository, paymentService, event -> { });
     }
 
     // El turista cancela su reserva confirmada.
@@ -72,6 +86,7 @@ public class BookingCancellationService {
         }
 
         cancel(booking);
+        publishCancelled(booking, EmailEvents.BookingCancelled.Cause.BY_TOURIST, refund);
         log.info("Reserva {} cancelada por el turista ({} % de reembolso)", bookingId, percentage);
         String message = refund == null
                 ? "Cancelaste tu reserva. Según la política de la actividad, no corresponde reembolso."
@@ -90,9 +105,10 @@ public class BookingCancellationService {
         int refunded = 0;
         int failed = 0;
         for (Booking booking : bookings) {
+            PaymentTransaction refund = null;
             // Las pendientes normalmente no tienen cobro; si alguna ya se cobró, también se devuelve
             if (paymentService.hasApprovedCharge(booking.getId()) && !paymentService.isRefunded(booking.getId())) {
-                PaymentTransaction refund = paymentService.refund(booking, PaymentService.FULL_REFUND_PERCENTAGE);
+                refund = paymentService.refund(booking, PaymentService.FULL_REFUND_PERCENTAGE);
                 if (PaymentService.isDone(refund)) {
                     refunded++;
                 } else {
@@ -100,10 +116,29 @@ public class BookingCancellationService {
                 }
             }
             cancel(booking);
+            publishCancelled(booking, EmailEvents.BookingCancelled.Cause.SCHEDULE_SUSPENDED, refund);
         }
         log.info("Horario {} suspendido: {} reservas canceladas, {} reembolsadas, {} reembolsos para reintentar",
                 scheduleId, bookings.size(), refunded, failed);
         return new SuspensionResult(bookings.size(), refunded, failed);
+    }
+
+    // Aviso por correo. refund es null si no hubo cobro o no corresponde reembolso. Un reembolso aprobado se cuenta como
+    // completo; uno en proceso o que falló, como en curso (RefundRetryTask lo reintenta y avisa al completarse)
+    private void publishCancelled(Booking booking, EmailEvents.BookingCancelled.Cause cause, PaymentTransaction refund) {
+        // Un error al armar el aviso nunca puede deshacer la cancelación (ni el reembolso, que ya se pidió)
+        try {
+            var schedule = booking.getActivitySchedule();
+            EmailEvents.BookingCancelled.RefundState state = refund == null ? EmailEvents.BookingCancelled.RefundState.NONE
+                    : refund.getStatus() == PaymentStatus.APPROVED ? EmailEvents.BookingCancelled.RefundState.COMPLETED
+                    : EmailEvents.BookingCancelled.RefundState.IN_PROGRESS;
+            eventPublisher.publishEvent(new EmailEvents.BookingCancelled(booking.getId(), booking.getTourist().getEmail(),
+                    booking.getTourist().getName(), booking.getBookingCode(), schedule.getActivity().getName(),
+                    schedule.getStartDateTime(), booking.getParticipantCount(), cause,
+                    refund == null ? null : refund.getAmount(), state));
+        } catch (RuntimeException e) {
+            log.error("No se pudo preparar el aviso de la cancelación de la reserva {}: {}", booking.getId(), e.getMessage(), e);
+        }
     }
 
     private void cancel(Booking booking) {

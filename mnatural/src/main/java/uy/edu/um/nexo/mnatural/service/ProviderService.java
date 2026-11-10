@@ -1,5 +1,7 @@
 package uy.edu.um.nexo.mnatural.service;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,15 +23,29 @@ public class ProviderService {
     private final ProviderRepository providerRepository;
     private final BusinessRepository businessRepository;
     private final PasswordEncoder passwordEncoder;
+    private final ApplicationEventPublisher eventPublisher;
 
+    // Este es el que usa Spring. Los correos (al prestador y a los administradores) salen recién cuando se confirma la
+    // transacción (EmailNotifier)
+    @Autowired
     public ProviderService(UserRepository userRepository,
                            ProviderRepository providerRepository,
                            BusinessRepository businessRepository,
-                           PasswordEncoder passwordEncoder) {
+                           PasswordEncoder passwordEncoder,
+                           ApplicationEventPublisher eventPublisher) {
         this.userRepository = userRepository;
         this.providerRepository = providerRepository;
         this.businessRepository = businessRepository;
         this.passwordEncoder = passwordEncoder;
+        this.eventPublisher = eventPublisher;
+    }
+
+    // Sin avisos por correo (para los tests que no lo necesitan)
+    public ProviderService(UserRepository userRepository,
+                           ProviderRepository providerRepository,
+                           BusinessRepository businessRepository,
+                           PasswordEncoder passwordEncoder) {
+        this(userRepository, providerRepository, businessRepository, passwordEncoder, event -> { });
     }
 
     @Transactional
@@ -69,6 +85,8 @@ public class ProviderService {
         business.setProvider(provider);
         provider.getBusinesses().add(business);
         businessRepository.save(business);
+        eventPublisher.publishEvent(new EmailEvents.ProviderRegistered(provider.getName(), provider.getEmail(),
+                business.getName()));
 
         return provider;
     }

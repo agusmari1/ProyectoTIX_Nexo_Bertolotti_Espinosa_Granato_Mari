@@ -174,3 +174,69 @@ Cada reembolso es un `PaymentTransaction` de tipo `REFUND` enlazado al cobro ori
 - **El prestador suspende un horario** (botón "Suspender" en `/provider/activities/{id}/schedules`). Se cancelan todas sus reservas, se reembolsa el **100 %** de las pagadas y las pendientes se cancelan sin cobro. Si un reembolso falla, la reserva se cancela igual y `RefundRetryTask` lo reintenta cada 10 minutos hasta que se complete.
 - Con Mercado Pago se usa `POST /v1/payments/{payment_id}/refunds`: sin monto para el total y con `amount` si es parcial. Antes de pedirlo se revisa cuánto ya está reembolsado, así un reintento no devuelve dos veces.
 - Con el servicio simulado, el reembolso se aprueba siempre, salvo con `payment.simulated.result=ERROR`.
+
+## Correos automáticos
+
+El sistema manda correos por SMTP. Con `MAIL_ENABLED=false` (por defecto) **no se envía nada**: cada mensaje se escribe en el
+log, así el proyecto anda en cualquier compu sin servidor de correo. Todos salen **después de confirmarse** la operación que
+los origina, y si el envío falla solo se registra en el log: nunca se deshace una reserva, un pago ni un registro por un
+correo caído. Los correos no llevan contraseñas (salvo la contraseña inicial de un administrador nuevo) ni enlaces a datos de
+otros usuarios: los links llevan a pantallas que piden iniciar sesión.
+
+### Mailpit: ver los correos en desarrollo
+
+[Mailpit](https://mailpit.axllent.org/) es un servidor de correo **de prueba**: recibe todos los mails de la app y los muestra
+en una web, sin mandar nada a internet. Está en `docker-compose.yml`:
+
+```bash
+docker compose up -d mailpit
+```
+
+La bandeja se ve en <http://localhost:8025>. Para que la app le mande los correos, definí estas variables (en IntelliJ:
+*Run → Edit Configurations → Environment variables*) y reiniciá la app:
+
+```powershell
+$env:MAIL_ENABLED   = "true"
+$env:MAIL_HOST      = "localhost"
+$env:MAIL_PORT      = "1025"
+$env:MAIL_SMTP_AUTH = "false"
+$env:MAIL_STARTTLS  = "false"
+.\mvnw spring-boot:run
+```
+
+Mailpit no usa usuario ni contraseña ni cifrado, por eso `MAIL_SMTP_AUTH` y `MAIL_STARTTLS` van en `false`.
+
+### Variables
+
+| Variable | Para qué | Por defecto |
+|---|---|---|
+| `MAIL_ENABLED` | `true` para enviar de verdad; `false` escribe los mensajes en el log | `false` |
+| `MAIL_HOST`, `MAIL_PORT` | Servidor SMTP | vacío y `587` |
+| `MAIL_USERNAME`, `MAIL_PASSWORD` | Cuenta del servidor SMTP. Solo como variables de entorno, nunca en el repo | vacío |
+| `MAIL_FROM` | Remitente. Si no se define se usa `MAIL_USERNAME` y, si tampoco, `no-reply@mnatural.uy` | ver arriba |
+| `MAIL_SMTP_AUTH` | Si el servidor pide usuario y contraseña (`false` con Mailpit) | `true` |
+| `MAIL_STARTTLS` | Si se cifra la conexión (`false` con Mailpit) | `true` |
+| `APP_BASE_URL` | Dirección pública de la app, para los links de los correos | `http://localhost:8080` |
+
+### Qué correos manda el sistema y cómo probar cada uno
+
+Con la app y Mailpit en marcha, hacé en la web lo de la columna "Cómo probarlo" y mirá la bandeja.
+
+| Para | Correo | Cuándo sale | Cómo probarlo |
+|---|---|---|---|
+| Turista | Cuenta creada | Al registrarse | Registrarse en `/registro/turista` |
+| Turista | Reserva creada, pendiente de pago | Al reservar, con el plazo para pagar | Reservar una actividad (`/reservar/{horario}`) |
+| Turista | No pudimos procesar tu pago | Cuando un pago pasa a rechazado o con error (una sola vez por cambio, no se repite), con hasta cuándo puede reintentar | Pagar con el titular `FUND` u `OTHE` en el pago simulado |
+| Turista | Reserva confirmada, con el QR y el código `MN-XXXXXXXX` | Al acreditarse el pago (ya incluye el resumen, por eso no hay un mail aparte de "pago aprobado") | Pagar con el titular `APRO` |
+| Turista | Tu reserva venció | Cuando vence por falta de pago (la tarea corre cada minuto) | Reservar y no pagar, hasta que pase el plazo |
+| Turista | Cancelaste tu reserva, con el monto del reembolso | Al cancelar una reserva confirmada | "Cancelar la reserva" en `/payments/bookings/{id}` |
+| Turista | Se canceló tu reserva por una suspensión (100 % de reembolso) | Cuando el prestador suspende el horario o la actividad | Como prestador, "Suspender" un horario con reservas |
+| Turista | Te devolvimos el dinero | Una sola vez, cuando se completa un reembolso que estaba en proceso o había fallado, o el de un pago que llegó con la reserva ya vencida | Con `payment.simulated.result=ERROR` el reembolso falla y se reintenta; al volver a `APPROVED` se completa |
+| Prestador | Recibimos tu solicitud | Al registrarse como prestador | Registrarse en `/registro/prestador` |
+| Prestador | Solicitud aprobada o rechazada (con el motivo) | Cuando un administrador la resuelve | `/admin/prestadores` |
+| Prestador | Nueva reserva confirmada | Al confirmarse una reserva en una de sus actividades (con la cantidad de participantes y el horario, sin los datos del turista) | Pagar una reserva de una de sus actividades |
+| Prestador | Un turista canceló una reserva | Al cancelar un turista (sin sus datos) | Cancelar una reserva confirmada |
+| Administrador | Cuenta de administrador / contraseña nueva | Al crear un administrador o generarle otra contraseña (es el único correo que lleva una contraseña) | `/admin/administradores` |
+| Administrador | Nuevo prestador pendiente de aprobación | Al registrarse un prestador (se avisa a todos los administradores) | Registrarse en `/registro/prestador` |
+
+El motivo de cada cambio queda en el log de la app si algo falla, con la frase `No se pudo mandar el correo`.
