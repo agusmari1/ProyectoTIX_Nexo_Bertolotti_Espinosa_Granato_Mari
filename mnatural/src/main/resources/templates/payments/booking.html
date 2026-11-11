@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<html lang="es" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Pago de la reserva | Uruguay Mnatural</title>
+    <title th:text="#{payment.title} + ' | ' + #{common.brand}">Pago de la reserva | Uruguay Mnatural</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" th:href="@{/css/styles.css}">
 </head>
@@ -14,7 +14,7 @@
 <!-- La foto se define en styles.css (.hero-actividades) -->
 <section class="hero hero-compact hero-photo hero-actividades">
     <div class="container">
-        <h1>Tu reserva</h1>
+        <h1 th:text="#{payment.heading}">Tu reserva</h1>
         <p th:text="${payment.activityName}"></p>
     </div>
 </section>
@@ -27,27 +27,27 @@
 
     <!-- Resumen -->
     <div class="card mb-4">
-        <div class="card-header">Resumen</div>
+        <div class="card-header" th:text="#{payment.summary}">Resumen</div>
         <div class="card-body">
             <dl class="row mb-0">
-                <dt class="col-sm-4">Actividad</dt>
+                <dt class="col-sm-4" th:text="#{payment.activity}">Actividad</dt>
                 <dd class="col-sm-8" th:text="${payment.activityName}"></dd>
 
-                <dt class="col-sm-4">Fecha y hora</dt>
+                <dt class="col-sm-4" th:text="#{payment.dateTime}">Fecha y hora</dt>
                 <dd class="col-sm-8" th:text="${#temporals.format(payment.startDateTime, 'dd/MM/yyyy HH:mm')}"></dd>
 
-                <dt class="col-sm-4">Participantes</dt>
+                <dt class="col-sm-4" th:text="#{payment.participants}">Participantes</dt>
                 <dd class="col-sm-8" th:text="${payment.participantCount}"></dd>
 
-                <dt class="col-sm-4">Total</dt>
-                <dd class="col-sm-8" th:text="'$ ' + ${#numbers.formatDecimal(payment.totalAmount, 1, 'POINT', 2, 'COMMA')} + ' (pesos uruguayos)'"></dd>
+                <dt class="col-sm-4" th:text="#{payment.total}">Total</dt>
+                <dd class="col-sm-8" th:text="'$ ' + ${#numbers.formatDecimal(payment.totalAmount, 1, 'DEFAULT', 2, 'DEFAULT')} + ' ' + #{payment.pesos}"></dd>
 
-                <dt class="col-sm-4">Estado</dt>
+                <dt class="col-sm-4" th:text="#{payment.status}">Estado</dt>
                 <dd class="col-sm-8" th:switch="${payment.status.name()}">
-                    <span th:case="'CONFIRMED'" class="badge text-bg-success">Confirmada</span>
-                    <span th:case="'PENDING'" class="badge text-bg-warning">Pendiente de pago</span>
-                    <span th:case="'EXPIRED'" class="badge text-bg-secondary">Vencida</span>
-                    <span th:case="'CANCELLED'" class="badge text-bg-secondary">Cancelada</span>
+                    <span th:case="'CONFIRMED'" class="badge text-bg-success" th:text="#{status.CONFIRMED}">Confirmada</span>
+                    <span th:case="'PENDING'" class="badge text-bg-warning" th:text="#{status.PENDING}">Pendiente de pago</span>
+                    <span th:case="'EXPIRED'" class="badge text-bg-secondary" th:text="#{status.EXPIRED}">Vencida</span>
+                    <span th:case="'CANCELLED'" class="badge text-bg-secondary" th:text="#{status.CANCELLED}">Cancelada</span>
                 </dd>
             </dl>
         </div>
@@ -56,30 +56,30 @@
     <!-- Confirmada: el código que se presenta el día de la actividad -->
     <div class="card mb-4 border-success" th:if="${payment.bookingCode}">
         <div class="card-body text-center">
-            <p class="mb-1">Tu código de reserva</p>
+            <p class="mb-1" th:text="#{payment.code}">Tu código de reserva</p>
             <p class="display-6 fw-bold mb-1" th:text="${payment.bookingCode}"></p>
             <img th:src="@{/payments/bookings/{id}/qr.png(id=${payment.bookingId})}" width="220" height="220"
-                 class="my-2" th:alt="'Código QR de la reserva ' + ${payment.bookingCode}">
-            <p class="text-muted mb-0">Presentá el código o el QR el día de la actividad. También te lo mandamos por mail.</p>
+                 class="my-2" th:alt="#{payment.qrAlt(${payment.bookingCode})}">
+            <p class="text-muted mb-0" th:text="#{payment.showCode}">Presentá el código o el QR el día de la actividad. También te lo mandamos por mail.</p>
         </div>
     </div>
 
     <!-- Confirmada: datos de contacto del emprendimiento (ESPECIFICACION.md, sección 4) -->
     <div class="card mb-4" th:if="${payment.bookingCode}"
          th:with="contact=${@bookingService.findBusinessContact(payment.bookingId)}">
-        <div class="card-header">Contacto del emprendimiento</div>
+        <div class="card-header" th:text="#{payment.contact}">Contacto del emprendimiento</div>
         <div class="card-body" th:if="${contact}">
             <dl class="row mb-0">
-                <dt class="col-sm-4">Nombre</dt>
+                <dt class="col-sm-4" th:text="#{payment.contact.name}">Nombre</dt>
                 <dd class="col-sm-8" th:text="${contact.name}"></dd>
 
-                <dt class="col-sm-4">Teléfono</dt>
+                <dt class="col-sm-4" th:text="#{payment.contact.phone}">Teléfono</dt>
                 <dd class="col-sm-8" th:text="${contact.phoneNumber}"></dd>
 
-                <dt class="col-sm-4">Correo</dt>
+                <dt class="col-sm-4" th:text="#{payment.contact.email}">Correo</dt>
                 <dd class="col-sm-8" th:text="${contact.email}"></dd>
 
-                <dt class="col-sm-4">Dirección</dt>
+                <dt class="col-sm-4" th:text="#{payment.contact.address}">Dirección</dt>
                 <dd class="col-sm-8" th:text="${contact.address}"></dd>
             </dl>
         </div>
@@ -89,39 +89,41 @@
     <div class="card mb-4" th:if="${payment.payable}">
         <div class="card-body">
             <p th:if="${payment.heldUntil}">
-                Tus lugares están guardados hasta las
+                <span th:text="#{payment.held.before}">Tus lugares están guardados hasta las</span>
                 <strong th:text="${#temporals.format(payment.heldUntil, 'HH:mm')}"></strong>
-                del <span th:text="${#temporals.format(payment.heldUntil, 'dd/MM/yyyy')}"></span>.
-                Si no se paga antes, la reserva se cancela y los lugares se liberan.
+                <span th:text="#{payment.held.on}">del</span> <span th:text="${#temporals.format(payment.heldUntil, 'dd/MM/yyyy')}"></span>.
+                <span th:text="#{payment.held.after}">Si no se paga antes, la reserva se cancela y los lugares se liberan.</span>
             </p>
             <!-- Con formulario de tarjeta se paga en una pantalla de la aplicación; si no, en la página del servicio -->
             <a th:if="${cardForm}" th:href="@{/payments/bookings/{id}/pay(id=${payment.bookingId})}" class="btn btn-success"
-               th:text="${#lists.isEmpty(payment.attempts)} ? 'Pagar' : 'Intentar pagar de nuevo'">Pagar</a>
+               th:text="${#lists.isEmpty(payment.attempts)} ? #{payment.pay} : #{payment.payAgain}">Pagar</a>
             <form th:unless="${cardForm}" th:action="@{/payments/bookings/{id}/start(id=${payment.bookingId})}" method="post">
                 <button type="submit" class="btn btn-success"
-                        th:text="${#lists.isEmpty(payment.attempts)} ? 'Pagar' : 'Intentar pagar de nuevo'">Pagar</button>
+                        th:text="${#lists.isEmpty(payment.attempts)} ? #{payment.pay} : #{payment.payAgain}">Pagar</button>
             </form>
         </div>
     </div>
 
     <!-- Confirmada: cancelar según la política de cancelación del prestador -->
     <div class="card mb-4" th:if="${payment.cancellable}">
-        <div class="card-header">Cancelar la reserva</div>
+        <div class="card-header" th:text="#{payment.cancel.title}">Cancelar la reserva</div>
         <div class="card-body">
             <p class="mb-0 text-muted" th:if="${payment.cancellationBlockedReason}"
                th:text="${payment.cancellationBlockedReason}"></p>
             <th:block th:unless="${payment.cancellationBlockedReason}">
                 <p th:if="${payment.refundIfCancelled.signum() > 0}">
-                    Si cancelás ahora se te devuelven
-                    <strong th:text="'$ ' + ${#numbers.formatDecimal(payment.refundIfCancelled, 1, 'POINT', 2, 'COMMA')}"></strong>
-                    por el mismo medio de pago, y los lugares se liberan.
+                    <span th:text="#{payment.cancel.refund.before}">Si cancelás ahora se te devuelven</span>
+                    <strong th:text="'$ ' + ${#numbers.formatDecimal(payment.refundIfCancelled, 1, 'DEFAULT', 2, 'DEFAULT')}"></strong>
+                    <span th:text="#{payment.cancel.refund.after}">por el mismo medio de pago, y los lugares se liberan.</span>
                 </p>
-                <p th:unless="${payment.refundIfCancelled.signum() > 0}">
+                <p th:unless="${payment.refundIfCancelled.signum() > 0}" th:text="#{payment.cancel.noRefund}">
                     Podés cancelar, pero según la política de la actividad no corresponde reembolso.
                 </p>
+                <!-- El texto del confirm va en un atributo data-: así no se arma JavaScript con texto traducido -->
                 <form th:action="@{/payments/bookings/{id}/cancel(id=${payment.bookingId})}" method="post"
-                      onsubmit="return confirm('¿Seguro que querés cancelar la reserva? No se puede deshacer.');">
-                    <button type="submit" class="btn btn-outline-danger">Cancelar reserva</button>
+                      th:attr="data-confirm=#{payment.cancel.confirm}"
+                      onsubmit="return confirm(this.dataset.confirm);">
+                    <button type="submit" class="btn btn-outline-danger" th:text="#{payment.cancel.button}">Cancelar reserva</button>
                 </form>
             </th:block>
         </div>
@@ -129,26 +131,26 @@
 
     <!-- Reembolsos -->
     <div class="card mb-4" th:unless="${#lists.isEmpty(payment.refunds)}">
-        <div class="card-header">Reembolsos</div>
+        <div class="card-header" th:text="#{payment.refunds}">Reembolsos</div>
         <div class="table-responsive">
             <table class="table mb-0">
                 <thead>
                 <tr>
-                    <th>Fecha</th>
-                    <th>Monto</th>
-                    <th>Resultado</th>
-                    <th>Detalle</th>
+                    <th th:text="#{payment.col.date}">Fecha</th>
+                    <th th:text="#{payment.col.amount}">Monto</th>
+                    <th th:text="#{payment.col.result}">Resultado</th>
+                    <th th:text="#{payment.col.detail}">Detalle</th>
                 </tr>
                 </thead>
                 <tbody>
                 <tr th:each="refund : ${payment.refunds}">
                     <td th:text="${#temporals.format(refund.createdAt, 'dd/MM/yyyy HH:mm')}"></td>
-                    <td th:text="'$ ' + ${#numbers.formatDecimal(refund.amount, 1, 'POINT', 2, 'COMMA')}"></td>
+                    <td th:text="'$ ' + ${#numbers.formatDecimal(refund.amount, 1, 'DEFAULT', 2, 'DEFAULT')}"></td>
                     <td th:switch="${refund.status.name()}">
-                        <span th:case="'APPROVED'">Reembolsado</span>
-                        <span th:case="'PENDING'">En proceso</span>
-                        <span th:case="'REJECTED'">Rechazado</span>
-                        <span th:case="'ERROR'">Error</span>
+                        <span th:case="'APPROVED'" th:text="#{refundStatus.APPROVED}">Reembolsado</span>
+                        <span th:case="'PENDING'" th:text="#{paymentStatus.PENDING}">En proceso</span>
+                        <span th:case="'REJECTED'" th:text="#{paymentStatus.REJECTED}">Rechazado</span>
+                        <span th:case="'ERROR'" th:text="#{paymentStatus.ERROR}">Error</span>
                     </td>
                     <td th:text="${refund.failureReason} ?: ''"></td>
                 </tr>
@@ -159,16 +161,16 @@
 
     <!-- Intentos de pago -->
     <div class="card" th:unless="${#lists.isEmpty(payment.attempts)}">
-        <div class="card-header">Intentos de pago</div>
+        <div class="card-header" th:text="#{payment.attempts}">Intentos de pago</div>
         <div class="table-responsive">
             <table class="table mb-0">
                 <thead>
                 <tr>
                     <th>#</th>
-                    <th>Fecha</th>
-                    <th>Resultado</th>
-                    <th>Tarjeta</th>
-                    <th>Detalle</th>
+                    <th th:text="#{payment.col.date}">Fecha</th>
+                    <th th:text="#{payment.col.result}">Resultado</th>
+                    <th th:text="#{payment.col.card}">Tarjeta</th>
+                    <th th:text="#{payment.col.detail}">Detalle</th>
                 </tr>
                 </thead>
                 <tbody>
@@ -176,12 +178,12 @@
                     <td th:text="${attempt.attemptNumber}"></td>
                     <td th:text="${#temporals.format(attempt.createdAt, 'dd/MM/yyyy HH:mm')}"></td>
                     <td th:switch="${attempt.status.name()}">
-                        <span th:case="'APPROVED'">Aprobado</span>
-                        <span th:case="'PENDING'">En proceso</span>
-                        <span th:case="'REJECTED'">Rechazado</span>
-                        <span th:case="'ERROR'">Error</span>
+                        <span th:case="'APPROVED'" th:text="#{paymentStatus.APPROVED}">Aprobado</span>
+                        <span th:case="'PENDING'" th:text="#{paymentStatus.PENDING}">En proceso</span>
+                        <span th:case="'REJECTED'" th:text="#{paymentStatus.REJECTED}">Rechazado</span>
+                        <span th:case="'ERROR'" th:text="#{paymentStatus.ERROR}">Error</span>
                     </td>
-                    <td th:text="${attempt.cardLastFour} ? ${attempt.cardBrand} + ' terminada en ' + ${attempt.cardLastFour} : '-'"></td>
+                    <td th:text="${attempt.cardLastFour} ? #{payment.cardEnding(${attempt.cardBrand}, ${attempt.cardLastFour})} : '-'"></td>
                     <td th:text="${attempt.failureReason} ?: ''"></td>
                 </tr>
                 </tbody>
@@ -193,8 +195,8 @@
 
 <footer class="site-footer">
     <div class="container">
-        <a th:href="@{/}" class="brand"><span class="brand-mark"></span>Uruguay Mnatural</a>
-        <span>Experiencias de naturaleza en todo Uruguay</span>
+        <a th:href="@{/}" class="brand"><span class="brand-mark"></span><span th:text="#{common.brand}">Uruguay Mnatural</span></a>
+        <span th:text="#{footer.tagline}">Experiencias de naturaleza en todo Uruguay</span>
     </div>
 </footer>
 

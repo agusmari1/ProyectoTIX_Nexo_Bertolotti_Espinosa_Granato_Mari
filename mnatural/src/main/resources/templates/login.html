@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<html lang="es" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Iniciar sesión | Uruguay Mnatural</title>
+    <title th:text="#{login.title} + ' | ' + #{common.brand}">Iniciar sesión | Uruguay Mnatural</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" th:href="@{/css/styles.css}">
 </head>
@@ -14,25 +14,25 @@
 <!-- La foto se define en styles.css (.hero-login) -->
 <section class="hero hero-small hero-photo hero-login">
     <div class="container">
-        <h1>Iniciar sesión</h1>
-        <p>Ingresá con tu correo y contraseña.</p>
+        <h1 th:text="#{login.title}">Iniciar sesión</h1>
+        <p th:text="#{login.subtitle}">Ingresá con tu correo y contraseña.</p>
     </div>
 </section>
 
 <main class="page container page-narrow">
 
     <!-- SecurityConfig redirige a /login?error, ?pending o ?rejected según por qué falló -->
-    <div class="alert alert-danger" th:if="${param.error}">
+    <div class="alert alert-danger" th:if="${param.error}" th:text="#{login.error}">
         Correo o contraseña incorrectos.
     </div>
-    <div class="alert alert-warning" th:if="${param.pending}">
+    <div class="alert alert-warning" th:if="${param.pending}" th:text="#{login.pending}">
         Tu solicitud como prestador todavía está pendiente de aprobación.
         Vas a poder ingresar cuando un administrador la apruebe.
     </div>
-    <div class="alert alert-danger" th:if="${param.rejected}">
+    <div class="alert alert-danger" th:if="${param.rejected}" th:text="#{login.rejected}">
         Tu solicitud como prestador fue rechazada, por lo que no podés ingresar a la plataforma.
     </div>
-    <div class="alert alert-success" th:if="${param.logout}">
+    <div class="alert alert-success" th:if="${param.logout}" th:text="#{login.loggedOut}">
         Cerraste sesión.
     </div>
 
@@ -42,33 +42,34 @@
         <div class="card-body d-grid gap-3">
 
             <div>
-                <label for="email" class="form-label">Correo electrónico</label>
+                <label for="email" class="form-label" th:text="#{login.email}">Correo electrónico</label>
                 <input type="email" id="email" name="email" class="form-control"
                        maxlength="254" autocomplete="username" required autofocus>
             </div>
 
             <div>
-                <label for="password" class="form-label">Contraseña</label>
+                <label for="password" class="form-label" th:text="#{login.password}">Contraseña</label>
                 <input type="password" id="password" name="password" class="form-control"
                        maxlength="72" autocomplete="current-password" required>
             </div>
 
-            <button type="submit" class="btn btn-success btn-lg">Ingresar</button>
+            <button type="submit" class="btn btn-success btn-lg" th:text="#{login.submit}">Ingresar</button>
         </div>
     </form>
 
     <p class="text-center text-muted mt-4 mb-0">
-        ¿No tenés cuenta? Registrate como
-        <a th:href="@{/registro/turista}">turista</a> o como
-        <a th:href="@{/registro/prestador}">prestador</a>
+        <span th:text="#{login.noAccount}">¿No tenés cuenta? Registrate como</span>
+        <a th:href="@{/registro/turista}" th:text="#{login.asTourist}">turista</a>
+        <span th:text="#{login.or}">o como</span>
+        <a th:href="@{/registro/prestador}" th:text="#{login.asProvider}">prestador</a>
     </p>
 
 </main>
 
 <footer class="site-footer">
     <div class="container">
-        <a th:href="@{/}" class="brand"><span class="brand-mark"></span>Uruguay Mnatural</a>
-        <span>Experiencias de naturaleza en todo Uruguay</span>
+        <a th:href="@{/}" class="brand"><span class="brand-mark"></span><span th:text="#{common.brand}">Uruguay Mnatural</span></a>
+        <span th:text="#{footer.tagline}">Experiencias de naturaleza en todo Uruguay</span>
     </div>
 </footer>
 

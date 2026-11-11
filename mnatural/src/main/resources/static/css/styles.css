@@ -934,3 +934,25 @@ dl.row dd {
         text-align: center;
     }
 }
+
+/* Selector de idioma (ES | EN) de la barra de navegación */
+.site-nav .lang-switch {
+    display: flex;
+    align-items: center;
+    border: 1.5px solid var(--color-border);
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.site-nav .lang-switch a {
+    padding: 0.3rem 0.7rem;
+    border-radius: 0;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+}
+
+.site-nav .lang-switch a.active {
+    background: var(--color-primary);
+    color: #fff;
+}

@@ -15,6 +15,8 @@
     var amount = Number(root.dataset.amount);
     var publicKey = root.dataset.publicKey;
     var messageBox = document.getElementById('checkout-message');
+    // Los textos de los avisos llegan ya traducidos en atributos data-msg-* de #checkout (el idioma de la página)
+    var messages = root.dataset;
     var csrfToken = metaContent('_csrf');
     var csrfHeader = metaContent('_csrf_header');
 
@@ -42,10 +44,10 @@
             body: JSON.stringify(payload)
         }).then(function (response) {
             return response.json().catch(function () {
-                return {status: 'ERROR', message: 'No pudimos procesar el pago. Probá de nuevo en unos minutos.'};
+                return {status: 'ERROR', message: messages.msgProcessError};
             });
         }).catch(function () {
-            return {status: 'ERROR', message: 'No pudimos conectarnos. Revisá tu conexión y probá de nuevo.'};
+            return {status: 'ERROR', message: messages.msgConnectionError};
         });
     }
 
@@ -56,7 +58,7 @@
         } else if (data.status === 'PENDING') {
             show('info', data.message);
         } else {
-            show('danger', data.message || 'No pudimos procesar el pago. Probá de nuevo.');
+            show('danger', data.message || messages.msgTryAgain);
             return false;
         }
         setTimeout(function () {
@@ -68,10 +70,11 @@
     // ===== Formulario de Mercado Pago =====
     if (publicKey) {
         if (typeof MercadoPago === 'undefined') {
-            show('danger', 'No se pudo cargar el formulario de pago de Mercado Pago. Revisá tu conexión y recargá la página.');
+            show('danger', messages.msgSdkError);
             return;
         }
-        var mp = new MercadoPago(publicKey, {locale: 'es-UY'});
+        // El formulario de Mercado Pago también sale en el idioma elegido
+        var mp = new MercadoPago(publicKey, {locale: document.documentElement.lang === 'en' ? 'en-US' : 'es-UY'});
         mp.bricks().create('cardPayment', 'cardPaymentBrick_container', {
             initialization: {amount: amount},
             customization: {paymentMethods: {minInstallments: 1, maxInstallments: 1}},
@@ -88,7 +91,7 @@
                 },
                 onError: function (error) {
                     console.error(error);
-                    show('danger', 'El formulario de pago tuvo un problema. Revisá los datos o recargá la página.');
+                    show('danger', messages.msgFormError);
                 }
             }
         });

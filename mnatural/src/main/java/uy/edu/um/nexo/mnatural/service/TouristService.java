@@ -24,7 +24,6 @@ public class TouristService {
             "espana", "spain", "guatemala", "guinea ecuatorial", "equatorial guinea", "honduras", "mexico",
             "nicaragua", "panama", "paraguay", "peru", "puerto rico", "republica dominicana",
             "dominican republic", "uruguay", "venezuela");
-    private static final Set<String> PORTUGUESE_SPEAKING_COUNTRIES = Set.of("brasil", "brazil", "portugal");
 
     private final UserRepository userRepository;
     private final TouristRepository touristRepository;
@@ -85,15 +84,16 @@ public class TouristService {
                 .orElseThrow(() -> new BookingException("Solo los turistas pueden hacer reservas."));
     }
 
-    // Idioma según el país (ESPECIFICACION.md, sección 1). El país se escribe a mano,
-    // así que se compara sin mayúsculas ni tildes. El idioma por defecto es el inglés
-    private String languageFor(String country) {
+    // Idioma según el país (ESPECIFICACION.md, sección 1). El país se escribe a mano, así que se compara sin
+    // mayúsculas ni tildes. La plataforma está en español e inglés: si el idioma del país no está soportado
+    // (por ejemplo, Brasil), se usa el inglés
+    public static String languageFor(String country) {
+        if (country == null) {
+            return "en";
+        }
         String normalized = Normalizer.normalize(country.trim().toLowerCase(), Normalizer.Form.NFD)
                 .replaceAll("\\p{M}", "");
-        if (SPANISH_SPEAKING_COUNTRIES.contains(normalized)) {
-            return "es";
-        }
-        return PORTUGUESE_SPEAKING_COUNTRIES.contains(normalized) ? "pt" : "en";
+        return SPANISH_SPEAKING_COUNTRIES.contains(normalized) ? "es" : "en";
     }
 
     private String blankToNull(String value) {

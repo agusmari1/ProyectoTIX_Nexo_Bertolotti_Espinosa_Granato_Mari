@@ -4,6 +4,7 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import uy.edu.um.nexo.mnatural.service.ActivityPhotos;
+import uy.edu.um.nexo.mnatural.service.ReviewService;
 import uy.edu.um.nexo.mnatural.weather.WeatherService;
 
 // Pone en el modelo del portal público lo que usan el listado y el detalle de actividades sin tocar
@@ -15,9 +16,12 @@ public class PublicActivityAdvice {
 
     private final ActivityPhotos activityPhotos = new ActivityPhotos();
     private final ObjectProvider<WeatherService> weatherService;
+    private final ObjectProvider<ReviewService> reviewService;
 
-    public PublicActivityAdvice(ObjectProvider<WeatherService> weatherService) {
+    public PublicActivityAdvice(ObjectProvider<WeatherService> weatherService,
+                                ObjectProvider<ReviewService> reviewService) {
         this.weatherService = weatherService;
+        this.reviewService = reviewService;
     }
 
     @ModelAttribute("activityPhotos")
@@ -28,5 +32,11 @@ public class PublicActivityAdvice {
     @ModelAttribute("weather")
     public WeatherService weather() {
         return weatherService.getIfAvailable();
+    }
+
+    // Valoraciones de la actividad en su detalle. Null si el servicio no existe: el bloque simplemente no se muestra
+    @ModelAttribute("reviewService")
+    public ReviewService reviewService() {
+        return reviewService.getIfAvailable();
     }
 }

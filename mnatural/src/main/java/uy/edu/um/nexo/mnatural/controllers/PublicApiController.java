@@ -15,6 +15,7 @@ import uy.edu.um.nexo.mnatural.entities.Department;
 import uy.edu.um.nexo.mnatural.service.PublicApiService;
 
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.List;
 
 // API pública (ESPECIFICACION.md, sección 9), documentada en API.md. Responde JSON y no pide
@@ -48,8 +49,10 @@ public class PublicApiController {
     }
 
     @GetMapping("/activities/top")
-    public List<ApiTopActivityDTO> topActivities(@RequestParam Department department) {
-        return apiService.findTopOfMonth(department);
+    public List<ApiTopActivityDTO> topActivities(
+            @RequestParam Department department,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM") YearMonth month) {
+        return apiService.findTopOfMonth(department, month);
     }
 
     @GetMapping("/activities/search")

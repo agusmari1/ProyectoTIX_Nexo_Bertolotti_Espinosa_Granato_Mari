@@ -2,11 +2,9 @@ package uy.edu.um.nexo.mnatural.service;
 
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.Expression;
-import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.Path;
 import jakarta.persistence.criteria.Predicate;
-import jakarta.persistence.criteria.Root;
-import jakarta.persistence.criteria.Subquery;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
@@ -20,7 +18,6 @@ import uy.edu.um.nexo.mnatural.dto.ApiTopActivityDTO;
 import uy.edu.um.nexo.mnatural.entities.Activity;
 import uy.edu.um.nexo.mnatural.entities.ActivitySchedule;
 import uy.edu.um.nexo.mnatural.entities.ActivityStatus;
-import uy.edu.um.nexo.mnatural.entities.ActivityType;
 import uy.edu.um.nexo.mnatural.entities.ApprovalStatus;
 import uy.edu.um.nexo.mnatural.entities.Business;
 import uy.edu.um.nexo.mnatural.entities.Department;
@@ -29,10 +26,11 @@ import uy.edu.um.nexo.mnatural.exception.InvalidApiRequestException;
 import uy.edu.um.nexo.mnatural.repository.ActivityCatalogRepository;
 import uy.edu.um.nexo.mnatural.repository.BusinessRepository;
 import uy.edu.um.nexo.mnatural.repository.PublicApiRepository;
+import uy.edu.um.nexo.mnatural.repository.ReviewRepository;
 
-import java.text.Normalizer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -43,21 +41,25 @@ import java.util.Map;
 @Service
 public class PublicApiService {
 
-    private static final int MAX_KEYWORD_LENGTH = 100;
+    private static final int MAX_KEYWORD_LENGTH = ActivityKeywordSearch.MAX_LENGTH;
+    private static final int TOP_SIZE = 3;
 
     private final PublicApiRepository apiRepository;
     private final ActivityCatalogRepository catalogRepository;
     private final BusinessRepository businessRepository;
     private final BookingService bookingService;
+    private final ReviewRepository reviewRepository;
 
     public PublicApiService(PublicApiRepository apiRepository,
                             ActivityCatalogRepository catalogRepository,
                             BusinessRepository businessRepository,
-                            BookingService bookingService) {
+                            BookingService bookingService,
+                            ReviewRepository reviewRepository) {
         this.apiRepository = apiRepository;
         this.catalogRepository = catalogRepository;
         this.businessRepository = businessRepository;
         this.bookingService = bookingService;
+        this.reviewRepository = reviewRepository;
     }
 
     @Transactional(readOnly = true)
@@ -119,12 +121,25 @@ public class PublicApiService {
         return List.copyOf(result.values());
     }
 
-    // TODO: las reseñas (ESPECIFICACION.md, sección 5) todavía no existen. Cuando existan, devolver las
-    // 3 actividades publicadas del departamento con mejor promedio de las reseñas publicadas en el mes
-    // calendario en curso, desempatando por mayor cantidad de valoraciones
+    // Hasta 3 actividades publicadas del departamento con mejor promedio de las reseñas visibles publicadas en
+    // el mes pedido (por defecto, el mes en curso), desempatando por mayor cantidad de valoraciones.
+    // Las reseñas eliminadas no cuentan y una actividad sin reseñas ese mes no entra al ranking
+    @Transactional(readOnly = true)
+    public List<ApiTopActivityDTO> findTopOfMonth(Department department, YearMonth month) {
+        YearMonth period = month != null ? month : YearMonth.now();
+        List<Object[]> rows = reviewRepository.rankActivities(department,
+                period.atDay(1).atStartOfDay(), period.plusMonths(1).atDay(1).atStartOfDay(),
+                PageRequest.of(0, TOP_SIZE));
+        return rows.stream()
+                .map(row -> new ApiTopActivityDTO(ApiActivityDTO.from((Activity) row[0]),
+                        Math.round(((Double) row[1]) * 100.0) / 100.0, (Long) row[2]))
+                .toList();
+    }
+
+    // Misma consulta para el mes actual
     @Transactional(readOnly = true)
     public List<ApiTopActivityDTO> findTopOfMonth(Department department) {
-        return List.of();
+        return findTopOfMonth(department, null);
     }
 
     // Busca en el nombre, la descripción, la localidad y los tipos, sin distinguir mayúsculas ni tildes
@@ -157,21 +172,10 @@ public class PublicApiService {
         return (root, query, cb) -> contains(cb, root.get("activity").get("locality"), locality);
     }
 
+    // La condición de texto es la misma que usa el buscador del portal (ActivityKeywordSearch)
     private static Specification<Activity> matchesKeyword(String keyword) {
-        return (root, query, cb) -> {
-            // Con una subconsulta, para no repetir la actividad si tiene varios tipos
-            Subquery<Long> typeMatch = query.subquery(Long.class);
-            Root<Activity> sameActivity = typeMatch.correlate(root);
-            Join<Activity, ActivityType> type = sameActivity.join("activityTypes");
-            typeMatch.select(type.get("id")).where(contains(cb, type.get("name"), keyword));
-
-            return cb.and(
-                    isPublic(root, cb),
-                    cb.or(contains(cb, root.get("name"), keyword),
-                            contains(cb, root.get("description"), keyword),
-                            contains(cb, root.get("locality"), keyword),
-                            cb.exists(typeMatch)));
-        };
+        Specification<Activity> text = ActivityKeywordSearch.matches(keyword);
+        return (root, query, cb) -> cb.and(isPublic(root, cb), text.toPredicate(root, query, cb));
     }
 
     // Lo único que puede ver la API: actividades publicadas de prestadores aprobados
@@ -181,16 +185,7 @@ public class PublicApiService {
                 cb.equal(activity.get("business").get("provider").get("approvalStatus"), ApprovalStatus.APPROVED));
     }
 
-    // translate le saca los tildes a la columna en PostgreSQL y simplify al texto buscado.
-    // La barra escapa % y _ para que se busquen como texto y no como comodines
     private static Predicate contains(CriteriaBuilder cb, Expression<String> column, String text) {
-        Expression<String> withoutAccents = cb.function("translate", String.class,
-                cb.lower(column), cb.literal("áéíóúüñ"), cb.literal("aeiouun"));
-        String escaped = simplify(text).replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
-        return cb.like(withoutAccents, "%" + escaped + "%", '\\');
-    }
-
-    private static String simplify(String text) {
-        return Normalizer.normalize(text.trim().toLowerCase(), Normalizer.Form.NFD).replaceAll("\\p{M}", "");
+        return ActivityKeywordSearch.contains(cb, column, text);
     }
 }
