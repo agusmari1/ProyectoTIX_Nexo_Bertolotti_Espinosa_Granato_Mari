@@ -90,15 +90,14 @@ Un horario está disponible si no está suspendido, si todavía se puede reserva
 
 ### 4. Top 3 de actividades del mes por departamento
 
-`GET /api/activities/top?department=ROCHA`
+`GET /api/activities/top?department=ROCHA&month=2026-11`
 
 | Parámetro | Obligatorio | Descripción |
 |---|---|---|
 | `department` | Sí | Departamento |
+| `month` | No | Mes a consultar, con formato `aaaa-MM` (por ejemplo `2026-11`). Si falta, se usa el mes en curso |
 
-> **Estado actual:** las reseñas todavía no están programadas, así que esta ruta devuelve siempre una lista vacía (`[]`).
-
-Cuando existan las reseñas, va a devolver hasta 3 actividades ordenadas por el promedio de las reseñas publicadas en el mes calendario en curso. Los empates se resuelven por mayor cantidad de valoraciones.
+Devuelve hasta 3 actividades publicadas del departamento, ordenadas por el promedio de las reseñas **visibles publicadas en ese mes** (las eliminadas por el turista no cuentan). Los empates se resuelven por mayor cantidad de valoraciones. Una actividad sin reseñas en el mes no aparece, así que la lista puede tener menos de 3 elementos o estar vacía. Un `month` con formato inválido devuelve 400. `averageRating` va redondeado a 2 decimales.
 
 ```json
 [

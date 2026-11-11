@@ -76,7 +76,8 @@ class TouristServiceTest {
     @ParameterizedTest
     @CsvSource({
             "Uruguay, es", "ESPAÑA, es", "méxico, es", "Spain, es", "  República Dominicana , es",
-            "Brasil, pt", "Brazil, pt", "PORTUGAL, pt",
+            // El portugués no está soportado: esos países usan el inglés
+            "Brasil, en", "Brazil, en", "PORTUGAL, en",
             "Francia, en", "United States, en", "Germany, en"})
     void registerAssignsTheLanguageAccordingToTheCountry(String country, String language) {
         TouristRegistrationDTO dto = validRegistration();

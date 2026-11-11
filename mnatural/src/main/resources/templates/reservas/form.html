@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<html lang="es" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Reservar | Uruguay Mnatural</title>
+    <title th:text="#{book.title} + ' | ' + #{common.brand}">Reservar | Uruguay Mnatural</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" th:href="@{/css/styles.css}">
 </head>
@@ -14,50 +14,50 @@
 <!-- La foto se define en styles.css (.hero-actividades) -->
 <section class="hero hero-compact hero-photo hero-actividades">
     <div class="container">
-        <h1>Reservar</h1>
+        <h1 th:text="#{book.title}">Reservar</h1>
         <p th:text="${summary.activityName}"></p>
     </div>
 </section>
 
 <main class="page page-flat container page-wide">
 
-    <a th:href="@{/actividades/{id}(id=${summary.activityId})}" class="back-link">&larr; Volver a la actividad</a>
+    <a th:href="@{/actividades/{id}(id=${summary.activityId})}" class="back-link" th:text="#{book.back}">&larr; Volver a la actividad</a>
 
     <div class="alert alert-danger" th:if="${errorMessage}" th:text="${errorMessage}"></div>
     <div class="alert alert-warning" th:unless="${summary.bookable}" th:text="${summary.blockedReason}"></div>
 
     <!-- Resumen -->
     <div class="card mb-4">
-        <div class="card-header">Resumen</div>
+        <div class="card-header" th:text="#{book.summary}">Resumen</div>
         <div class="card-body">
             <dl class="row mb-0">
-                <dt class="col-sm-4">Actividad</dt>
+                <dt class="col-sm-4" th:text="#{book.activity}">Actividad</dt>
                 <dd class="col-sm-8" th:text="${summary.activityName}"></dd>
 
-                <dt class="col-sm-4">Emprendimiento</dt>
+                <dt class="col-sm-4" th:text="#{book.business}">Emprendimiento</dt>
                 <dd class="col-sm-8" th:text="${summary.businessName}"></dd>
 
-                <dt class="col-sm-4">Localidad</dt>
+                <dt class="col-sm-4" th:text="#{book.locality}">Localidad</dt>
                 <dd class="col-sm-8" th:text="${summary.locality}"></dd>
 
-                <dt class="col-sm-4">Fecha</dt>
+                <dt class="col-sm-4" th:text="#{book.date}">Fecha</dt>
                 <dd class="col-sm-8" th:text="${#temporals.format(summary.startDateTime, 'dd/MM/yyyy')}"></dd>
 
-                <dt class="col-sm-4">Horario</dt>
+                <dt class="col-sm-4" th:text="#{book.time}">Horario</dt>
                 <dd class="col-sm-8">
                     <span th:text="${#temporals.format(summary.startDateTime, 'HH:mm')}"></span>
-                    (<span th:text="${summary.durationMinutes}"></span> minutos)
+                    <span th:text="#{book.minutes(${summary.durationMinutes})}">(60 minutos)</span>
                 </dd>
 
-                <dt class="col-sm-4">Precio por persona</dt>
-                <dd class="col-sm-8" th:text="'$ ' + ${#numbers.formatDecimal(summary.pricePerPerson, 1, 'POINT', 2, 'COMMA')}"></dd>
+                <dt class="col-sm-4" th:text="#{book.pricePerPerson}">Precio por persona</dt>
+                <dd class="col-sm-8" th:text="'$ ' + ${#numbers.formatDecimal(summary.pricePerPerson, 1, 'DEFAULT', 2, 'DEFAULT')}"></dd>
 
                 <th:block th:if="${summary.minAge != null and summary.minAge > 0}">
-                    <dt class="col-sm-4">Edad mínima</dt>
-                    <dd class="col-sm-8" th:text="${summary.minAge} + ' años'"></dd>
+                    <dt class="col-sm-4" th:text="#{book.minAge}">Edad mínima</dt>
+                    <dd class="col-sm-8" th:text="#{book.years(${summary.minAge})}"></dd>
                 </th:block>
 
-                <dt class="col-sm-4">Lugares libres</dt>
+                <dt class="col-sm-4" th:text="#{book.freeSpots}">Lugares libres</dt>
                 <dd class="col-sm-8" th:text="${summary.availableSpots}"></dd>
             </dl>
         </div>
@@ -68,11 +68,11 @@
 
         <!-- Participantes -->
         <div class="card mb-4">
-            <div class="card-header">Participantes</div>
+            <div class="card-header" th:text="#{book.participants}">Participantes</div>
             <div class="card-body row g-3">
 
                 <div class="col-md-6">
-                    <label for="participantCount" class="form-label">Cantidad de participantes</label>
+                    <label for="participantCount" class="form-label" th:text="#{book.participantCount}">Cantidad de participantes</label>
                     <!-- Sin name: solo decide cuántos acompañantes se muestran. La cantidad real se calcula con ellos -->
                     <input type="number" id="participantCount" class="form-control" min="1"
                            th:attr="max=${summary.availableSpots}"
@@ -82,15 +82,15 @@
                 <div class="col-12">
                     <div class="form-check">
                         <input type="checkbox" id="holderParticipates" class="form-check-input" th:field="*{holderParticipates}">
-                        <label class="form-check-label" for="holderParticipates">Yo también participo</label>
+                        <label class="form-check-label" for="holderParticipates" th:text="#{book.holderParticipates}">Yo también participo</label>
                     </div>
-                    <div class="form-text">Destildalo si reservás solo para otras personas.</div>
+                    <div class="form-text" th:text="#{book.holderParticipates.help}">Destildalo si reservás solo para otras personas.</div>
                 </div>
 
                 <div class="col-12" id="holder-notes">
-                    <label for="holderNotes" class="form-label">Tu observación <span class="text-muted fw-normal">(opcional)</span></label>
+                    <label for="holderNotes" class="form-label"><span th:text="#{book.holderNotes}">Tu observación</span> <span class="text-muted fw-normal" th:text="#{book.optional}">(opcional)</span></label>
                     <textarea id="holderNotes" rows="2" class="form-control" th:field="*{holderNotes}"></textarea>
-                    <div class="form-text">Algo relevante para el servicio, por ejemplo uso de muletas o silla de ruedas.</div>
+                    <div class="form-text" th:text="#{book.holderNotes.help}">Algo relevante para el servicio, por ejemplo uso de muletas o silla de ruedas.</div>
                 </div>
             </div>
         </div>
@@ -98,38 +98,38 @@
         <!-- Acompañantes: la plantilla de abajo agrega una tarjeta por cada uno -->
         <div id="participant-rows">
             <div class="card mb-4" th:each="participant, row : *{participants}">
-                <div class="card-header" th:text="'Acompañante ' + ${row.count}"></div>
+                <div class="card-header" th:text="#{book.companion} + ' ' + ${row.count}"></div>
                 <div class="card-body row g-3">
                     <div class="col-md-6">
-                        <label class="form-label" th:for="|participants${row.index}.name|">Nombre</label>
+                        <label class="form-label" th:for="|participants${row.index}.name|" th:text="#{book.name}">Nombre</label>
                         <input type="text" class="form-control" th:field="*{participants[__${row.index}__].name}" th:errorclass="is-invalid">
                         <div class="invalid-feedback" th:errors="*{participants[__${row.index}__].name}"></div>
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label" th:for="|participants${row.index}.lastName|">Apellido</label>
+                        <label class="form-label" th:for="|participants${row.index}.lastName|" th:text="#{book.lastName}">Apellido</label>
                         <input type="text" class="form-control" th:field="*{participants[__${row.index}__].lastName}" th:errorclass="is-invalid">
                         <div class="invalid-feedback" th:errors="*{participants[__${row.index}__].lastName}"></div>
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label" th:for="|participants${row.index}.documentType|">Tipo de documento</label>
+                        <label class="form-label" th:for="|participants${row.index}.documentType|" th:text="#{book.documentType}">Tipo de documento</label>
                         <select class="form-select" th:field="*{participants[__${row.index}__].documentType}" th:errorclass="is-invalid">
-                            <option value="">Seleccioná…</option>
-                            <option th:each="option : ${documentTypes}" th:value="${option.key}" th:text="${option.value}"></option>
+                            <option value="" th:text="#{book.documentType.select}">Seleccioná…</option>
+                            <option th:each="option : ${documentTypes}" th:value="${option.key}" th:text="#{|documentType.${option.key}|}"></option>
                         </select>
                         <div class="invalid-feedback" th:errors="*{participants[__${row.index}__].documentType}"></div>
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label" th:for="|participants${row.index}.documentNumber|">Número de documento</label>
+                        <label class="form-label" th:for="|participants${row.index}.documentNumber|" th:text="#{book.documentNumber}">Número de documento</label>
                         <input type="text" class="form-control" th:field="*{participants[__${row.index}__].documentNumber}" th:errorclass="is-invalid">
                         <div class="invalid-feedback" th:errors="*{participants[__${row.index}__].documentNumber}"></div>
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label" th:for="|participants${row.index}.dateOfBirth|">Fecha de nacimiento</label>
+                        <label class="form-label" th:for="|participants${row.index}.dateOfBirth|" th:text="#{book.dateOfBirth}">Fecha de nacimiento</label>
                         <input type="date" class="form-control" th:field="*{participants[__${row.index}__].dateOfBirth}" th:errorclass="is-invalid">
                         <div class="invalid-feedback" th:errors="*{participants[__${row.index}__].dateOfBirth}"></div>
                     </div>
                     <div class="col-12">
-                        <label class="form-label" th:for="|participants${row.index}.notes|">Observaciones <span class="text-muted fw-normal">(opcional)</span></label>
+                        <label class="form-label" th:for="|participants${row.index}.notes|"><span th:text="#{book.notes}">Observaciones</span> <span class="text-muted fw-normal" th:text="#{book.optional}">(opcional)</span></label>
                         <textarea rows="2" class="form-control" th:field="*{participants[__${row.index}__].notes}"></textarea>
                     </div>
                 </div>
@@ -138,9 +138,9 @@
 
         <!-- Observaciones generales -->
         <div class="card mb-4">
-            <div class="card-header">Observaciones generales <span class="text-muted fw-normal ms-1">(opcional)</span></div>
+            <div class="card-header"><span th:text="#{book.generalNotes}">Observaciones generales</span> <span class="text-muted fw-normal ms-1" th:text="#{book.optional}">(opcional)</span></div>
             <div class="card-body">
-                <label for="generalNotes" class="form-label">Algo que el prestador deba saber</label>
+                <label for="generalNotes" class="form-label" th:text="#{book.generalNotes.label}">Algo que el prestador deba saber</label>
                 <textarea id="generalNotes" rows="2" class="form-control" th:field="*{generalNotes}"></textarea>
             </div>
         </div>
@@ -149,51 +149,51 @@
         <div class="card mb-4">
             <div class="card-body">
                 <p class="h5 mb-2">
-                    Total estimado:
+                    <span th:text="#{book.total}">Total estimado:</span>
                     <strong id="estimated-total" th:attr="data-price=${summary.pricePerPerson}"
-                            th:text="'$ ' + ${#numbers.formatDecimal(summary.pricePerPerson, 1, 'POINT', 2, 'COMMA')}"></strong>
+                            th:text="'$ ' + ${#numbers.formatDecimal(summary.pricePerPerson, 1, 'DEFAULT', 2, 'DEFAULT')}"></strong>
                 </p>
                 <p class="text-muted mb-0">
-                    Al continuar, tus lugares quedan retenidos durante
-                    <span th:text="${summary.holdMinutes}"></span> minutos. En la pantalla siguiente vas a ver
-                    hasta qué hora tenés para pagar.
+                    <span th:text="#{book.hold.before}">Al continuar, tus lugares quedan retenidos durante</span>
+                    <span th:text="#{book.hold.minutes(${summary.holdMinutes})}"></span>.
+                    <span th:text="#{book.hold.after}">En la pantalla siguiente vas a ver hasta qué hora tenés para pagar.</span>
                 </p>
             </div>
         </div>
 
-        <button type="submit" class="btn btn-success btn-lg w-100">Continuar al pago</button>
+        <button type="submit" class="btn btn-success btn-lg w-100" th:text="#{book.continue}">Continuar al pago</button>
     </form>
 
     <!-- Tarjeta de un acompañante nuevo. El script reemplaza __INDEX__ y __NUMBER__ -->
     <template id="participant-template" th:if="${summary.bookable}">
         <div class="card mb-4">
-            <div class="card-header">Acompañante __NUMBER__</div>
+            <div class="card-header"><span th:text="#{book.companion}">Acompañante</span> __NUMBER__</div>
             <div class="card-body row g-3">
                 <div class="col-md-6">
-                    <label class="form-label" for="participants__INDEX__.name">Nombre</label>
+                    <label class="form-label" for="participants__INDEX__.name" th:text="#{book.name}">Nombre</label>
                     <input type="text" id="participants__INDEX__.name" name="participants[__INDEX__].name" class="form-control">
                 </div>
                 <div class="col-md-6">
-                    <label class="form-label" for="participants__INDEX__.lastName">Apellido</label>
+                    <label class="form-label" for="participants__INDEX__.lastName" th:text="#{book.lastName}">Apellido</label>
                     <input type="text" id="participants__INDEX__.lastName" name="participants[__INDEX__].lastName" class="form-control">
                 </div>
                 <div class="col-md-6">
-                    <label class="form-label" for="participants__INDEX__.documentType">Tipo de documento</label>
+                    <label class="form-label" for="participants__INDEX__.documentType" th:text="#{book.documentType}">Tipo de documento</label>
                     <select id="participants__INDEX__.documentType" name="participants[__INDEX__].documentType" class="form-select">
-                        <option value="">Seleccioná…</option>
-                        <option th:each="option : ${documentTypes}" th:value="${option.key}" th:text="${option.value}"></option>
+                        <option value="" th:text="#{book.documentType.select}">Seleccioná…</option>
+                        <option th:each="option : ${documentTypes}" th:value="${option.key}" th:text="#{|documentType.${option.key}|}"></option>
                     </select>
                 </div>
                 <div class="col-md-6">
-                    <label class="form-label" for="participants__INDEX__.documentNumber">Número de documento</label>
+                    <label class="form-label" for="participants__INDEX__.documentNumber" th:text="#{book.documentNumber}">Número de documento</label>
                     <input type="text" id="participants__INDEX__.documentNumber" name="participants[__INDEX__].documentNumber" class="form-control">
                 </div>
                 <div class="col-md-6">
-                    <label class="form-label" for="participants__INDEX__.dateOfBirth">Fecha de nacimiento</label>
+                    <label class="form-label" for="participants__INDEX__.dateOfBirth" th:text="#{book.dateOfBirth}">Fecha de nacimiento</label>
                     <input type="date" id="participants__INDEX__.dateOfBirth" name="participants[__INDEX__].dateOfBirth" class="form-control">
                 </div>
                 <div class="col-12">
-                    <label class="form-label" for="participants__INDEX__.notes">Observaciones <span class="text-muted fw-normal">(opcional)</span></label>
+                    <label class="form-label" for="participants__INDEX__.notes"><span th:text="#{book.notes}">Observaciones</span> <span class="text-muted fw-normal" th:text="#{book.optional}">(opcional)</span></label>
                     <textarea id="participants__INDEX__.notes" name="participants[__INDEX__].notes" rows="2" class="form-control"></textarea>
                 </div>
             </div>
@@ -204,8 +204,8 @@
 
 <footer class="site-footer">
     <div class="container">
-        <a th:href="@{/}" class="brand"><span class="brand-mark"></span>Uruguay Mnatural</a>
-        <span>Experiencias de naturaleza en todo Uruguay</span>
+        <a th:href="@{/}" class="brand"><span class="brand-mark"></span><span th:text="#{common.brand}">Uruguay Mnatural</span></a>
+        <span th:text="#{footer.tagline}">Experiencias de naturaleza en todo Uruguay</span>
     </div>
 </footer>
 
@@ -222,6 +222,8 @@
         const rows = document.getElementById('participant-rows');
         const total = document.getElementById('estimated-total');
         const price = parseFloat(total.dataset.price);
+        // El total se escribe con el formato del idioma de la página (1.000,00 en español, 1,000.00 en inglés)
+        const numberFormat = document.documentElement.lang === 'en' ? 'en-US' : 'es-UY';
 
         function refresh() {
             const participants = Math.max(1, parseInt(count.value, 10) || 1);
@@ -237,7 +239,7 @@
             }
             holderNotes.hidden = !holder.checked;
             total.textContent = '$ ' + (price * participants)
-                .toLocaleString('es-UY', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                .toLocaleString(numberFormat, {minimumFractionDigits: 2, maximumFractionDigits: 2});
         }
 
         count.addEventListener('input', refresh);

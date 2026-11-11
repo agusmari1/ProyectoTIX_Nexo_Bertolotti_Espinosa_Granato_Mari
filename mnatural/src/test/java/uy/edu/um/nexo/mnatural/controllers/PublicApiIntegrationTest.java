@@ -188,7 +188,7 @@ class PublicApiIntegrationTest {
     }
 
     @Test
-    void topIsEmptyUntilReviewsExist() throws Exception {
+    void topIsEmptyWhenThereAreNoReviewsInTheMonth() throws Exception {
         mockMvc.perform(get("/api/activities/top").param("department", "MALDONADO"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(0));

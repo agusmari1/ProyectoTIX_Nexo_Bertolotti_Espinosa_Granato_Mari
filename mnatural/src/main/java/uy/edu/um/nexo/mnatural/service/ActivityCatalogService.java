@@ -42,6 +42,14 @@ public class ActivityCatalogService {
         List<Specification<Activity>> conditions = new ArrayList<>();
         conditions.add(isPublished());
 
+        // Palabra clave: mismo criterio que la API (ActivityKeywordSearch). Un texto demasiado largo se recorta
+        if (filter.getQ() != null && !filter.getQ().isBlank()) {
+            String keyword = filter.getQ().trim();
+            if (keyword.length() > ActivityKeywordSearch.MAX_LENGTH) {
+                keyword = keyword.substring(0, ActivityKeywordSearch.MAX_LENGTH);
+            }
+            conditions.add(ActivityKeywordSearch.matches(keyword));
+        }
         if (filter.getDepartment() != null) {
             conditions.add(inDepartment(filter.getDepartment()));
         }

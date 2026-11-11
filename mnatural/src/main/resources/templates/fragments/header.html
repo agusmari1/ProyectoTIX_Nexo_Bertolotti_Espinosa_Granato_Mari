@@ -6,44 +6,56 @@
     Encabezado de todas las páginas. Se usa con:
     <header th:replace="~{fragments/header :: header}"></header>
     currentUser lo agrega CurrentUserAdvice. Sin sesión es null.
+    languageLinks lo agrega LanguageAdvice (selector de idioma). Si no está (por ejemplo en la página de error), no se muestra.
 */-->
 <header class="site-header" th:fragment="header">
     <div class="container">
-        <a th:href="@{/}" class="brand"><span class="brand-mark"></span>Uruguay Mnatural</a>
+        <a th:href="@{/}" class="brand"><span class="brand-mark"></span><span th:text="#{common.brand}">Uruguay Mnatural</span></a>
         <nav class="site-nav">
-            <a th:if="${currentUser == null}" th:href="@{/login}" class="nav-cta">Iniciar sesión</a>
+            <!-- Selector de idioma: el elegido se recuerda en una cookie y se mantiene al navegar -->
+            <div class="lang-switch" th:if="${languageLinks != null}" role="group" th:attr="aria-label=#{nav.language}">
+                <a th:href="${languageLinks.spanishUrl}" lang="es" hreflang="es" th:title="#{nav.language.es}"
+                   th:classappend="${languageLinks.spanish} ? 'active'"
+                   th:attr="aria-current=${languageLinks.spanish} ? 'true'">ES</a>
+                <a th:href="${languageLinks.englishUrl}" lang="en" hreflang="en" th:title="#{nav.language.en}"
+                   th:classappend="${languageLinks.english} ? 'active'"
+                   th:attr="aria-current=${languageLinks.english} ? 'true'">EN</a>
+            </div>
+
+            <a th:if="${currentUser == null}" th:href="@{/login}" class="nav-cta" th:text="#{nav.login}">Iniciar sesión</a>
 
             <details class="user-menu" th:if="${currentUser != null}">
-                <summary class="user-menu-button" aria-label="Menú de usuario">
+                <summary class="user-menu-button" th:attr="aria-label=#{nav.userMenu}">
                     <span class="user-avatar" aria-hidden="true" th:text="${currentUser.initial}">A</span>
                     <span class="user-name" th:text="${currentUser.displayName}">Nombre</span>
                 </summary>
 
                 <div class="user-menu-panel">
-                    <a th:href="@{/perfil}">Mi perfil</a>
+                    <a th:href="@{/perfil}" th:text="#{nav.profile}">Mi perfil</a>
 
                     <th:block th:if="${currentUser.tourist}">
-                        <a th:href="@{/turista/reservas}">Mis reservas</a>
-                        <a th:href="@{/actividades}">Ver actividades</a>
+                        <a th:href="@{/turista/reservas}" th:text="#{nav.myBookings}">Mis reservas</a>
+                        <a th:href="@{/actividades}" th:text="#{nav.viewActivities}">Ver actividades</a>
                     </th:block>
 
                     <th:block th:if="${currentUser.provider}">
-                        <a th:href="@{/provider/businesses}">Mi emprendimiento</a>
-                        <a th:href="@{/provider/activities}">Mis actividades</a>
-                        <a th:href="@{/provider/reservations}">Reservas recibidas</a>
-                        <a th:href="@{/provider/verificar}">Verificar código</a>
+                        <a th:href="@{/provider/businesses}" th:text="#{nav.myBusiness}">Mi emprendimiento</a>
+                        <a th:href="@{/provider/activities}" th:text="#{nav.myActivities}">Mis actividades</a>
+                        <a th:href="@{/provider/reservations}" th:text="#{nav.receivedBookings}">Reservas recibidas</a>
+                        <a th:href="@{/provider/reviews}" th:text="#{nav.reviews}">Reseñas</a>
+                        <a th:href="@{/provider/verificar}" th:text="#{nav.verifyCode}">Verificar código</a>
                     </th:block>
 
                     <th:block th:if="${currentUser.admin}">
-                        <a th:href="@{/admin/prestadores}">Prestadores pendientes</a>
-                        <a th:href="@{/admin/tipos-actividad}">Tipos de actividad</a>
-                        <a th:href="@{/admin/administradores}">Agregar admin</a>
+                        <a th:href="@{/admin/prestadores}" th:text="#{nav.pendingProviders}">Prestadores pendientes</a>
+                        <a th:href="@{/admin/tipos-actividad}" th:text="#{nav.activityTypes}">Tipos de actividad</a>
+                        <a th:href="@{/admin/administradores}" th:text="#{nav.addAdmin}">Agregar admin</a>
                     </th:block>
 
-                    <a th:href="@{/cuenta/contrasena}">Cambiar contraseña</a>
+                    <a th:href="@{/cuenta/contrasena}" th:text="#{nav.changePassword}">Cambiar contraseña</a>
 
                     <form th:action="@{/logout}" method="post">
-                        <button type="submit">Cerrar sesión</button>
+                        <button type="submit" th:text="#{nav.logout}">Cerrar sesión</button>
                     </form>
                 </div>
             </details>

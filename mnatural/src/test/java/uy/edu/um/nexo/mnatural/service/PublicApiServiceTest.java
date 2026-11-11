@@ -2,6 +2,8 @@ package uy.edu.um.nexo.mnatural.service;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import uy.edu.um.nexo.mnatural.dto.ApiAvailableActivityDTO;
@@ -16,15 +18,18 @@ import uy.edu.um.nexo.mnatural.exception.InvalidApiRequestException;
 import uy.edu.um.nexo.mnatural.repository.ActivityCatalogRepository;
 import uy.edu.um.nexo.mnatural.repository.BusinessRepository;
 import uy.edu.um.nexo.mnatural.repository.PublicApiRepository;
+import uy.edu.um.nexo.mnatural.repository.ReviewRepository;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -40,6 +45,7 @@ class PublicApiServiceTest {
     private ActivityCatalogRepository catalogRepository;
     private BusinessRepository businessRepository;
     private BookingService bookingService;
+    private ReviewRepository reviewRepository;
     private PublicApiService service;
 
     @BeforeEach
@@ -48,7 +54,9 @@ class PublicApiServiceTest {
         catalogRepository = mock(ActivityCatalogRepository.class);
         businessRepository = mock(BusinessRepository.class);
         bookingService = mock(BookingService.class);
-        service = new PublicApiService(apiRepository, catalogRepository, businessRepository, bookingService);
+        reviewRepository = mock(ReviewRepository.class);
+        service = new PublicApiService(apiRepository, catalogRepository, businessRepository, bookingService,
+                reviewRepository);
     }
 
     @Test
@@ -116,8 +124,47 @@ class PublicApiServiceTest {
     }
 
     @Test
-    void topIsEmptyUntilReviewsExist() {
+    void topWithoutReviewsInTheMonthIsEmpty() {
         assertThat(service.findTopOfMonth(Department.ROCHA)).isEmpty();
+    }
+
+    @Test
+    void topReturnsTheRankingKeepingTheOrderOfTheQueryAndRoundingTheAverage() {
+        when(reviewRepository.rankActivities(any(), any(), any(), any())).thenReturn(List.of(
+                new Object[]{activity(1L, 0), 4.666666, 3L},
+                new Object[]{activity(2L, 0), 4.0, 5L}));
+
+        var top = service.findTopOfMonth(Department.ROCHA, YearMonth.of(2026, 11));
+
+        assertThat(top).hasSize(2);
+        assertThat(top.get(0).activity().id()).isEqualTo(1L);
+        assertThat(top.get(0).averageRating()).isEqualTo(4.67);
+        assertThat(top.get(0).ratingCount()).isEqualTo(3L);
+        assertThat(top.get(1).activity().id()).isEqualTo(2L);
+    }
+
+    @Test
+    void topAsksForTheExactMonthAndAtMostThreeActivities() {
+        service.findTopOfMonth(Department.ROCHA, YearMonth.of(2026, 12));
+
+        ArgumentCaptor<LocalDateTime> from = ArgumentCaptor.forClass(LocalDateTime.class);
+        ArgumentCaptor<LocalDateTime> to = ArgumentCaptor.forClass(LocalDateTime.class);
+        ArgumentCaptor<Pageable> page = ArgumentCaptor.forClass(Pageable.class);
+        verify(reviewRepository).rankActivities(eq(Department.ROCHA), from.capture(), to.capture(), page.capture());
+        // Del 1 de diciembre inclusive al 1 de enero exclusive (pasa de año bien)
+        assertThat(from.getValue()).isEqualTo(LocalDateTime.of(2026, 12, 1, 0, 0));
+        assertThat(to.getValue()).isEqualTo(LocalDateTime.of(2027, 1, 1, 0, 0));
+        assertThat(page.getValue().getPageSize()).isEqualTo(3);
+        assertThat(page.getValue().getPageNumber()).isZero();
+    }
+
+    @Test
+    void topWithoutMonthUsesTheCurrentMonth() {
+        service.findTopOfMonth(Department.ROCHA);
+
+        ArgumentCaptor<LocalDateTime> from = ArgumentCaptor.forClass(LocalDateTime.class);
+        verify(reviewRepository).rankActivities(any(), from.capture(), any(), any());
+        assertThat(from.getValue()).isEqualTo(YearMonth.now().atDay(1).atStartOfDay());
     }
 
     @Test
