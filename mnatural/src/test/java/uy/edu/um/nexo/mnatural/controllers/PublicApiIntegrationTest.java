@@ -66,6 +66,8 @@ class PublicApiIntegrationTest {
     private ActivityRepository activityRepository;
     @Autowired
     private ActivityScheduleRepository scheduleRepository;
+    @Autowired
+    private uy.edu.um.nexo.mnatural.repository.ReviewRepository reviewRepository;
 
     private MockMvc mockMvc;
     private Business approvedBusiness;
@@ -189,6 +191,9 @@ class PublicApiIntegrationTest {
 
     @Test
     void topIsEmptyWhenThereAreNoReviewsInTheMonth() throws Exception {
+        // Sin reseñas en toda la base (se vacían dentro de la transacción del test, que se deshace al final): así no
+        // depende de las que ya haya, por ejemplo las de los datos de demostración
+        reviewRepository.deleteAllInBatch();
         mockMvc.perform(get("/api/activities/top").param("department", "MALDONADO"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(0));

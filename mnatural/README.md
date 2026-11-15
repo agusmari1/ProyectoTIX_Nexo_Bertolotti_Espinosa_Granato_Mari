@@ -240,3 +240,36 @@ Con la app y Mailpit en marcha, hacé en la web lo de la columna "Cómo probarlo
 | Administrador | Nuevo prestador pendiente de aprobación | Al registrarse un prestador (se avisa a todos los administradores) | Registrarse en `/registro/prestador` |
 
 El motivo de cada cambio queda en el log de la app si algo falla, con la frase `No se pudo mandar el correo`.
+
+## Datos de demostración: reseñas y reservas pasadas
+
+Sirve para mostrar **en vivo** cómo se ven las reseñas y cómo un turista valora una actividad a la que ya fue. Está **apagado por defecto** (no corre en ningún perfil): solo se carga si se activa a propósito. Crea usuarios con una contraseña conocida, así que **no hay que activarlo en una entrega**.
+
+### Qué carga
+- **6 turistas de demostración.** El principal es `turistaprueba@gmail.com` (contraseña `prueba1234`); los otros 5 (Ana, Martín, Lucía, Diego y Carla) solo escriben reseñas y usan direcciones `@demo.mnatural.test`.
+- **15 reservas pasadas y confirmadas**, con sus participantes y un pago aprobado, sobre horarios de las actividades del prestador `aprobadoprueba@gmail.com` que ya pasaron (entre 8 y 30 días atrás).
+- **12 reseñas ya publicadas** (puntajes de 2 a 5; una sin comentario y 4 con respuesta del prestador), de 5 turistas distintos. Quedan en el mes en curso, así que también aparecen en el top 3 de `/api/activities/top`.
+- **3 reservas pasadas de `turistaprueba` sin reseñar**, para valorarlas durante la demostración (en "Mis reservas", botón **Valorar**).
+
+### Cómo activarlo (IntelliJ)
+Necesita al prestador aprobado de prueba y sus actividades, así que se activan los tres juntos. En **Run → Edit Configurations → Environment variables** agregar:
+
+```
+APP_SEED_TEST_PROVIDERS=true;APP_SEED_DEMO_ACTIVITIES=true;APP_SEED_DEMO_PAST_BOOKINGS=true
+```
+
+Se levanta la aplicación **una vez**: los datos quedan guardados en la base de datos. Después se puede quitar `APP_SEED_DEMO_PAST_BOOKINGS` (y las otras dos) de la configuración: los datos siguen ahí. También se puede activar con el argumento `--app.seed.demo-past-bookings=true`.
+
+Si falta el prestador aprobado o sus actividades, el seeder lo avisa en el log (`No se cargaron reservas pasadas de demostración...`) y no hace nada.
+
+### Es idempotente
+Cada reserva lleva un código fijo (`MN-DEMO-01` a `MN-DEMO-15`) y las que ya existen no se vuelven a crear, así que se puede levantar la aplicación varias veces con la propiedad activa sin duplicar nada. Una reseña que hagas en vivo tampoco se toca.
+
+### Cómo mostrarlo
+1. Iniciar sesión como `turistaprueba@gmail.com` → **Mis reservas**: aparecen las actividades pasadas con el botón **Valorar**.
+2. **Valorar** → elegir puntaje, escribir un comentario → **Publicar reseña**. Vuelve a "Mis reservas" con la marca **Valorada** y el botón pasa a **Ver mi reseña**.
+3. En el detalle público de la actividad (`/actividades/{id}`, sin iniciar sesión) se ven el promedio, la cantidad y todas las reseñas.
+4. Como prestador (`aprobadoprueba@gmail.com`) → **Reseñas**: se ven y se pueden responder.
+
+### Volver a empezar
+Los datos de demostración se pueden borrar de la base (reservas con código `MN-DEMO-%`, sus pagos, participantes, horarios y reseñas) o, más simple, usar una base nueva.

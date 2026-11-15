@@ -166,6 +166,14 @@ Se completa a pedido: decile a Claude "agregá a la bitácora: …" y lo suma co
 - **Archivos de otras tareas que se tocaron:** `LoginController` (de Agustina), `login.html` e `index.html`.
 - **Cómo se probó:** 20 tests nuevos (621 en total, sin tocar la base real): `ReserveLoginFlowTest` (visitante ve listado y detalle; reservar sin sesión va a `/login`; el aviso aparece solo al venir de reservar; el turista vuelve a la reserva; admin y prestador van a su panel; destinos externos ignorados; contraseña incorrecta; admin y prestador reciben 403 en reserva, pago, reservas y reseñas), `ForbiddenPageTest` y `HomeExploreTest`. Con la app real: inicio → reservar sin sesión → login con aviso → crear cuenta → iniciar sesión → vuelve a la reserva; destino externo ignorado; el prestador ve el mensaje en la página real de 403 (también por POST y en inglés).
 
+### 15/11/2026 — Datos de demostración de reseñas y "Mis reservas" con próximas y pasadas
+- **Para qué:** mostrar **en vivo** cómo se ven las reseñas y cómo un turista valora una actividad pasada. Las reseñas ya existían (PR #36, son nuestras, no de Camila); lo que faltaba eran datos para mostrarlas y separar las reservas en "Mis reservas".
+- **`DemoPastBookingsSeeder`** (`config/`): apagado por defecto, se activa con `app.seed.demo-past-bookings=true` (variable `APP_SEED_DEMO_PAST_BOOKINGS=true` en IntelliJ). Inserta con los repositorios (el servicio de reservas no deja crear horarios pasados). Crea: 6 turistas de demostración (`turistaprueba@gmail.com` con contraseña `prueba1234` y 5 que solo escriben reseñas), 15 reservas confirmadas y pasadas con participantes y pago aprobado, 12 reseñas ya publicadas (puntajes 2 a 5, una sin comentario, 4 con respuesta del prestador) y 3 reservas pasadas de `turistaprueba` sin reseñar para valorar en vivo. Necesita al prestador aprobado de prueba y sus actividades (`app.seed.test-providers` y `app.seed.demo-activities`); si faltan, avisa en el log y no hace nada. Es idempotente (códigos `MN-DEMO-01` a `MN-DEMO-15`). Documentado en el README.
+- **"Mis reservas"** (`/turista/reservas`): ahora dos secciones, **Próximas** (la actividad todavía no empezó) y **Pasadas**, cada una oculta si está vacía. En las pasadas, confirmadas y terminadas **sin reseña** aparece el botón **Valorar** (antes decía "Calificar" y se mostraba aunque ya hubiera reseña); si ya hay reseña, se marca **Valorada** y el botón pasa a **Ver mi reseña**. La tarjeta de reserva quedó en su propio fragmento (`fragments/tourist-booking.html`).
+- **Las reglas no se duplicaron:** solo se valora una reserva confirmada, de una actividad que ya terminó, una sola vez y solo por su titular; siguen en `ReviewService` y el controlador solo delega. El formulario ahora se titula "Valorar la actividad".
+- **Archivos de otras tareas que se tocaron:** `TouristBookingController` y `reservas/list.html` (de `agusmari1`), y `TouristBookingControllerTest` (la expectativa "Calificar" pasó a "Valorar"). `BookingService`, `SecurityConfig`, `application.properties` y `detail.html` **no** se tocaron (el detalle ya incluía el fragmento de valoraciones).
+- **Cómo se probó:** 15 tests nuevos (636 en total, sin tocar la base real): `DemoPastBookingsSeederTest` (qué crea, que se puede valorar en vivo con las reglas reales y solo una vez, que otro turista no puede, idempotencia, casos sin datos y que no existe sin la propiedad) y `TouristBookingSectionsTest`. Con la app real: se cargan los datos, `turistaprueba` ve 3 pasadas con "Valorar", valoré una en vivo (pasa a "Valorada" y aparece en el detalle público con el promedio nuevo), el top 3 de la API muestra el ranking y al reiniciar no se duplica nada.
+
 ## Decisiones
 - El **usuario** de todos es el correo (el login no tiene un campo "usuario" aparte).
 - La contraseña de un admin nuevo no la elige nadie: **al azar y solo por correo**.
@@ -194,6 +202,7 @@ Se completa a pedido: decile a Claude "agregá a la bitácora: …" y lo suma co
 | `SHOW_SQL` | `true` para imprimir las consultas SQL (por defecto `false`) |
 | `app.seed.test-providers` | `true` activa `TestProviderSeeder` (por defecto apagado) |
 | `app.seed.demo-activities` | `true` carga las 15 actividades de demostración (por defecto apagado) |
+| `app.seed.demo-past-bookings` | `true` carga turistas, reservas pasadas y reseñas de demostración (por defecto apagado; ver README) |
 | `weather.enabled` | `false` apaga el clima (por defecto activado) |
 
 ## Pendientes

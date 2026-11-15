@@ -21,6 +21,11 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
             """)
     Optional<uy.edu.um.nexo.mnatural.entities.Booking> findBookingForReview(@Param("bookingId") Long bookingId);
 
+    // Las reservas de un turista que ya tienen reseña (visible o eliminada: igual no se puede dejar otra). Para
+    // "Mis reservas": ahí no se ofrece "Valorar" en esas, sino "Ver mi reseña"
+    @Query("select r.booking.id from Review r where r.tourist.id = :touristId")
+    List<Long> findReviewedBookingIdsOf(@Param("touristId") Long touristId);
+
     // Una reserva tiene una sola reseña, esté visible o eliminada
     Optional<Review> findByBookingId(Long bookingId);
 

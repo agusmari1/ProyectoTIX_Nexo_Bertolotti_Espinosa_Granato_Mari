@@ -15,7 +15,7 @@
 <section class="hero hero-compact hero-photo hero-actividades">
     <div class="container">
         <h1 th:text="#{myBookings.title}">Mis reservas</h1>
-        <p th:text="#{myBookings.subtitle}">Todas tus reservas, de la más reciente a la más antigua.</p>
+        <p th:text="#{myBookings.subtitle}">Tus próximas actividades y las que ya hiciste, para que las valores.</p>
     </div>
 </section>
 
@@ -29,52 +29,21 @@
         <a th:href="@{/actividades}" th:text="#{myBookings.seeActivities}">Mirá las actividades disponibles</a>.
     </div>
 
-    <div class="card item-card" th:each="booking : ${bookings}">
-        <div class="card-header">
-            <span th:text="${booking.activityName}"></span>
-            <span th:switch="${booking.status.name()}">
-                <span th:case="'CONFIRMED'" class="badge text-bg-success" th:text="#{status.CONFIRMED}">Confirmada</span>
-                <span th:case="'PENDING'" class="badge text-bg-warning" th:text="#{status.PENDING}">Pendiente de pago</span>
-                <span th:case="'CANCELLED'" class="badge text-bg-secondary" th:text="#{status.CANCELLED}">Cancelada</span>
-                <span th:case="'EXPIRED'" class="badge text-bg-secondary" th:text="#{status.EXPIRED}">Vencida</span>
-            </span>
-        </div>
-        <div class="card-body">
-            <div class="row g-2 small">
-                <div class="col-md-6">
-                    <span class="text-label" th:text="#{myBookings.date}">Fecha:</span>
-                    <span th:text="${#temporals.format(booking.startDateTime, 'dd/MM/yyyy')}"></span>
-                </div>
-                <div class="col-md-6">
-                    <span class="text-label" th:text="#{myBookings.time}">Horario:</span>
-                    <span th:text="${#temporals.format(booking.startDateTime, 'HH:mm')}"></span>
-                </div>
-                <div class="col-md-6">
-                    <span class="text-label" th:text="#{myBookings.participants}">Participantes:</span>
-                    <span th:text="${booking.participantCount}"></span>
-                </div>
-                <div class="col-md-6">
-                    <span class="text-label" th:text="#{myBookings.total}">Total:</span>
-                    $ <span th:text="${#numbers.formatDecimal(booking.totalAmount, 1, 'DEFAULT', 2, 'DEFAULT')}"></span>
-                </div>
-                <div class="col-12" th:if="${booking.status.name() == 'PENDING' and booking.heldUntil != null}">
-                    <span class="text-label" th:text="#{myBookings.payBefore}">Pagá antes de las:</span>
-                    <strong th:text="${#temporals.format(booking.heldUntil, 'HH:mm')}"></strong>
-                    <span th:text="#{myBookings.on}">del</span> <span th:text="${#temporals.format(booking.heldUntil, 'dd/MM/yyyy')}"></span>
-                </div>
-                <div class="col-12" th:if="${booking.bookingCode}">
-                    <span class="text-label" th:text="#{myBookings.code}">Código de reserva:</span>
-                    <strong th:text="${booking.bookingCode}"></strong>
-                </div>
-            </div>
-        </div>
-        <div class="card-footer d-flex flex-wrap gap-2">
-            <a th:href="@{/payments/bookings/{id}(id=${booking.bookingId})}" class="btn btn-outline-success btn-sm"
-               th:text="${booking.status.name() == 'PENDING'} ? #{myBookings.viewAndPay} : #{myBookings.viewDetail}"></a>
-            <a th:if="${booking.reviewable}" th:href="@{/reviews/bookings/{id}(id=${booking.bookingId})}"
-               class="btn btn-success btn-sm" th:text="#{myBookings.rate}">Calificar</a>
-        </div>
-    </div>
+    <!-- Próximas: la actividad todavía no empezó -->
+    <section id="upcoming-bookings" th:unless="${#lists.isEmpty(upcoming)}">
+        <h2 class="h4 mb-3" th:text="#{myBookings.upcoming}">Próximas</h2>
+        <th:block th:each="booking : ${upcoming}">
+            <th:block th:replace="~{fragments/tourist-booking :: card(${booking})}"></th:block>
+        </th:block>
+    </section>
+
+    <!-- Pasadas: ya empezaron o ya pasaron. Si están confirmadas y terminaron, se pueden valorar -->
+    <section id="past-bookings" th:unless="${#lists.isEmpty(past)}">
+        <h2 class="h4 mb-3 mt-4" th:text="#{myBookings.past}">Pasadas</h2>
+        <th:block th:each="booking : ${past}">
+            <th:block th:replace="~{fragments/tourist-booking :: card(${booking})}"></th:block>
+        </th:block>
+    </section>
 
 </main>
 

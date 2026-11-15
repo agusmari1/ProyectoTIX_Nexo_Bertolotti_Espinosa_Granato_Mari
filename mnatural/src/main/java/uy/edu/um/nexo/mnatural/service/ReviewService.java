@@ -166,7 +166,7 @@ public class ReviewService {
     // ===== Reglas =====
 
     // La reserva tiene que ser del turista, estar confirmada y su actividad tiene que haber terminado.
-    // Mismo cálculo que el botón "Calificar" de "Mis reservas" (BookingService.toTouristBooking)
+    // Mismo cálculo que el botón "Valorar" de "Mis reservas" (BookingService.toTouristBooking)
     private Booking eligibleBooking(Long bookingId, Long touristId) {
         Booking booking = reviewRepository.findBookingForReview(bookingId)
                 .filter(b -> touristId != null && Objects.equals(b.getTourist().getId(), touristId))
