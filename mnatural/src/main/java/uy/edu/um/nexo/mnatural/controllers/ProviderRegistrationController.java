@@ -1,10 +1,15 @@
 package uy.edu.um.nexo.mnatural.controllers;
 
 import jakarta.validation.Valid;
+import org.springframework.beans.PropertyAccessException;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
+import org.springframework.validation.DefaultBindingErrorProcessor;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.WebDataBinder;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.InitBinder;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -49,6 +54,23 @@ public class ProviderRegistrationController {
         return options;
     }
 
+    // Si el RUT trae letras, Spring no puede convertirlo a Long y genera un error técnico
+    // en inglés. Lo reemplazamos por el mismo mensaje claro de las otras validaciones del RUT.
+    @InitBinder("registration")
+    public void initBinder(WebDataBinder binder) {
+        binder.setBindingErrorProcessor(new DefaultBindingErrorProcessor() {
+            @Override
+            public void processPropertyAccessException(PropertyAccessException ex, BindingResult bindingResult) {
+                if ("rut".equals(ex.getPropertyName())) {
+                    bindingResult.addError(new FieldError("registration", "rut", ex.getValue(), true,
+                            new String[]{"typeMismatch.rut"}, null, ProviderRegistrationDTO.RUT_MESSAGE));
+                } else {
+                    super.processPropertyAccessException(ex, bindingResult);
+                }
+            }
+        });
+    }
+
     @GetMapping
     public String showForm(Model model) {
         model.addAttribute("registration", new ProviderRegistrationDTO());
@@ -59,6 +81,13 @@ public class ProviderRegistrationController {
     public String register(@Valid @ModelAttribute("registration") ProviderRegistrationDTO registration,
                            BindingResult bindingResult,
                            Model model) {
+        // Solo comparo si ya escribió algo en "Repetir contraseña"; si está vacío ya sale el error de obligatorio
+        String confirmPassword = registration.getConfirmPassword();
+        if (registration.getPassword() != null && confirmPassword != null && !confirmPassword.isBlank()
+                && !registration.getPassword().equals(confirmPassword)) {
+            bindingResult.rejectValue("confirmPassword", "password.mismatch", "Las contraseñas no coinciden");
+        }
+
         if (bindingResult.hasErrors()) {
             return FORM_VIEW;
         }

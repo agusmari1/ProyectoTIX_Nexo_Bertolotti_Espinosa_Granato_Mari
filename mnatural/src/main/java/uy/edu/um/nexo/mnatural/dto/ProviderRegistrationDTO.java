@@ -1,6 +1,8 @@
 package uy.edu.um.nexo.mnatural.dto;
 
 import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Past;
@@ -12,6 +14,8 @@ import uy.edu.um.nexo.mnatural.entities.LegalType;
 import java.time.LocalDate;
 
 public class ProviderRegistrationDTO {
+
+    public static final String RUT_MESSAGE = "El RUT debe tener exactamente 12 dígitos y solo números";
 
     // Datos del prestador
 
@@ -43,6 +47,10 @@ public class ProviderRegistrationDTO {
     @Size(min = 8, message = "La contraseña debe tener al menos 8 caracteres")
     private String password;
 
+    // Solo sirve para validar el formulario: no se guarda en ningún lado
+    @NotBlank(message = "Repetí la contraseña")
+    private String confirmPassword;
+
     private String phoneNumber;
 
     // Datos del emprendimiento
@@ -53,7 +61,11 @@ public class ProviderRegistrationDTO {
     @NotNull(message = "El tipo de emprendimiento es obligatorio")
     private LegalType legalType;
 
-    private String rut;
+    // Opcional (obligatorio solo para empresas, lo valida el service). Si viene,
+    // tiene que ser un número de 12 dígitos: entre 100000000000 y 999999999999
+    @Min(value = 100000000000L, message = RUT_MESSAGE)
+    @Max(value = 999999999999L, message = RUT_MESSAGE)
+    private Long rut;
 
     @NotBlank(message = "La dirección es obligatoria")
     private String address;
@@ -132,6 +144,14 @@ public class ProviderRegistrationDTO {
         this.password = password;
     }
 
+    public String getConfirmPassword() {
+        return confirmPassword;
+    }
+
+    public void setConfirmPassword(String confirmPassword) {
+        this.confirmPassword = confirmPassword;
+    }
+
     public String getPhoneNumber() {
         return phoneNumber;
     }
@@ -156,11 +176,11 @@ public class ProviderRegistrationDTO {
         this.legalType = legalType;
     }
 
-    public String getRut() {
+    public Long getRut() {
         return rut;
     }
 
-    public void setRut(String rut) {
+    public void setRut(Long rut) {
         this.rut = rut;
     }
 

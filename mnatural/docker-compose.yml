@@ -11,5 +11,14 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
 
+  # Servidor de correo de PRUEBA: recibe todos los mails de la app y los muestra en una web, sin mandar nada a internet.
+  # SMTP en el puerto 1025 y la bandeja en http://localhost:8025
+  mailpit:
+    image: axllent/mailpit
+    container_name: mnatural-mailpit
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
 volumes:
   pgdata:

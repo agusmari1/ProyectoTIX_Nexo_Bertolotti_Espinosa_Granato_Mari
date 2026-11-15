@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<!--/*
+    Valoraciones de una actividad en su página pública. Se incluye con UNA línea:
+    <div th:replace="~{fragments/reviews :: summary(${activity.id})}"></div>
+    Cuenta solo las reseñas visibles (las eliminadas por el turista no se muestran ni cuentan para el promedio).
+    Si el servicio de reseñas no está disponible, no muestra nada
+*/-->
+<th:block th:fragment="summary(activityId)">
+    <th:block th:with="summary=${reviewService?.summaryOf(activityId)}">
+        <div class="card mb-4" id="resenas" th:if="${summary != null}">
+            <div class="card-header" th:text="#{reviews.title}">Valoraciones</div>
+            <div class="card-body">
+
+                <p class="text-muted mb-0" th:unless="${summary.hasReviews()}" th:text="#{reviews.none}">
+                    Todavía no hay valoraciones de esta actividad.
+                </p>
+
+                <div th:if="${summary.hasReviews()}">
+                    <div class="d-flex align-items-baseline gap-2 mb-3">
+                        <!-- El promedio se escribe según el idioma: 4,5 en español y 4.5 en inglés -->
+                        <span class="fs-2 fw-bold" th:text="${#numbers.formatDecimal(summary.average(), 1, 1)}">4,5</span>
+                        <span class="fs-5" th:text="${summary.stars()}">★★★★☆</span>
+                        <span class="text-muted small"
+                              th:text="${summary.count() == 1} ? #{reviews.count.one} : #{reviews.count.many(${summary.count()})}">(2 valoraciones)</span>
+                    </div>
+
+                    <div class="py-3 border-top" th:each="review : ${summary.reviews()}">
+                        <div class="d-flex justify-content-between flex-wrap gap-1">
+                            <span><strong th:text="${review.authorName()}">Ana P.</strong>
+                                <span class="ms-1" th:text="${review.stars()}">★★★★★</span></span>
+                            <span class="text-muted small" th:text="${#temporals.format(review.createdAt(), 'dd/MM/yyyy')}">01/01/2027</span>
+                        </div>
+                        <p class="mb-1" style="white-space: pre-line" th:if="${review.comment() != null}" th:text="${review.comment()}"></p>
+                        <div class="alert alert-light border small mt-2 mb-0" th:if="${review.providerReply() != null}">
+                            <strong th:text="#{reviews.providerReply}">Respuesta del prestador:</strong>
+                            <span style="white-space: pre-line" th:text="${review.providerReply()}"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </th:block>
+</th:block>
+
+</body>
+</html>
