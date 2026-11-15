@@ -47,6 +47,28 @@ class ActivityPhotosTest {
     }
 
     @Test
+    void thePhotoUploadedByTheProviderGoesBeforeAnyOther() {
+        Activity activity = activity("Caminata por Cabo Polonio", Department.ROCHA);
+        activity.setPhotoFile("abc.webp");
+
+        assertThat(photos.urlFor(activity)).isEqualTo("/img/subidas/actividades/abc.webp");
+    }
+
+    @Test
+    void anActivityWithoutAnyPhotoIsShownWithTheDefaultImage() {
+        String url = photos.urlOrDefault(activity("Algo sin foto", Department.ARTIGAS));
+
+        assertThat(url).isEqualTo(ActivityPhotos.DEFAULT_URL);
+        assertThat(new ClassPathResource("static" + url).exists()).isTrue();
+    }
+
+    @Test
+    void theDefaultImageIsOnlyUsedWhenThereIsNoOtherPhoto() {
+        assertThat(photos.urlOrDefault(activity("City Tour", Department.MONTEVIDEO)))
+                .startsWith("/img/actividades/montevideo.");
+    }
+
+    @Test
     void anActivityGetsThePhotoNamedLikeItsTitle() {
         String url = photos.urlFor(activity("Caminata por Cabo Polonio", Department.ROCHA));
 

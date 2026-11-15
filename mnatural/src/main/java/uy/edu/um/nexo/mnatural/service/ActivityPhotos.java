@@ -11,15 +11,17 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
-// Foto de cada actividad. Las imágenes están en static/img/actividades/ (los créditos, en CREDITOS.md):
-//   1. la foto de la propia actividad: el archivo se llama como su título, sin tildes ni signos y con guiones
-//      (por ejemplo "Caminata por Cabo Polonio" -> caminata-por-cabo-polonio.jpg);
-//   2. si no tiene, la foto de su departamento (punta-del-este, colonia, montevideo, salto, rocha);
-//   3. si tampoco hay, devuelve null y la pantalla simplemente no muestra imagen.
-// Se usa desde las plantillas del portal con ${activityPhotos.urlFor(activity)} (lo pone en el modelo
-// PublicActivityAdvice)
+// Foto de cada actividad:
+//   1. la que subió el prestador (ActivityPhotoStorage);
+//   2. una imagen del proyecto (static/img/actividades/, los créditos están en CREDITOS.md) que se llama como la
+//      actividad, sin tildes ni signos y con guiones ("Caminata por Cabo Polonio" -> caminata-por-cabo-polonio.jpg);
+//   3. si no tiene, la foto de su departamento (punta-del-este, colonia, montevideo, salto, rocha);
+//   4. si tampoco hay, urlFor devuelve null y urlOrDefault devuelve una imagen genérica.
+// Se usa desde las plantillas con ${activityPhotos.urlOrDefault(activity)} (lo pone en el modelo PublicActivityAdvice)
 public class ActivityPhotos {
 
+    static final String UPLOADS_URL = "/img/subidas/actividades/";
+    static final String DEFAULT_URL = "/img/actividades/sin-foto.svg";
     static final String FOLDER = "static/img/actividades/";
     static final List<String> EXTENSIONS = List.of("jpg", "jpeg", "png", "webp");
 
@@ -33,10 +35,19 @@ public class ActivityPhotos {
     // Se guarda lo que ya se buscó, incluso "no hay foto", para no consultar el disco en cada pantalla
     private final Map<String, Optional<String>> cache = new ConcurrentHashMap<>();
 
+    // Para mostrar en pantalla: nunca deja el espacio de la imagen vacío
+    public String urlOrDefault(Activity activity) {
+        String url = urlFor(activity);
+        return url != null ? url : DEFAULT_URL;
+    }
+
     // Foto de la actividad, o la de su departamento. null si no hay ninguna
     public String urlFor(Activity activity) {
         if (activity == null) {
             return null;
+        }
+        if (activity.getPhotoFile() != null) {
+            return UPLOADS_URL + activity.getPhotoFile();
         }
         String own = activity.getName() == null ? null : cache.computeIfAbsent(slug(activity.getName()), this::find)
                 .orElse(null);
