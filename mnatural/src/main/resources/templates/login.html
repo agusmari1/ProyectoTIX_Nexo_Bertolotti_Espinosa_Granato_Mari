@@ -21,6 +21,12 @@
 
 <main class="page container page-narrow">
 
+    <!-- Llegó desde "Reservar" sin sesión: LoginController lo detecta. Al iniciar sesión vuelve a la reserva -->
+    <div class="alert alert-info" th:if="${reserveFirst}" id="reserve-first">
+        <span th:text="#{login.reserveFirst}">Iniciá sesión o registrate para reservar.</span>
+        <a th:href="@{/registro/turista}" class="alert-link" th:text="#{login.reserveFirst.register}">Crear una cuenta de turista</a>
+    </div>
+
     <!-- SecurityConfig redirige a /login?error, ?pending o ?rejected según por qué falló -->
     <div class="alert alert-danger" th:if="${param.error}" th:text="#{login.error}">
         Correo o contraseña incorrectos.
