@@ -90,6 +90,9 @@ class TopActivitiesIntegrationTest {
         mockMvc = MockMvcBuilders.webAppContextSetup(context)
                 .addFilters(context.getBean("springSecurityFilterChain", Filter.class))
                 .build();
+        // El ranking cuenta las reseñas de TODA la base: se vacían (dentro de la transacción del test, que se deshace
+        // al final) para que el resultado no dependa de las que ya haya, por ejemplo las de los datos de demostración
+        reviewRepository.deleteAllInBatch();
         approved = business("Zztop Aprobado", "zztop-ok@test.local", ApprovalStatus.APPROVED);
         pending = business("Zztop Pendiente", "zztop-pend@test.local", ApprovalStatus.PENDING);
         type = new ActivityType();

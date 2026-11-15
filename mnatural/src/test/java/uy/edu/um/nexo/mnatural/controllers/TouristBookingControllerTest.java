@@ -65,7 +65,7 @@ class TouristBookingControllerTest {
                 .andExpect(content().string(containsString("14:35")))
                 .andExpect(content().string(containsString("1.000,00")))
                 .andExpect(content().string(containsString("/payments/bookings/1")))
-                .andExpect(content().string(not(containsString("Calificar"))));
+                .andExpect(content().string(not(containsString("Valorar"))));
     }
 
     @Test
@@ -77,7 +77,7 @@ class TouristBookingControllerTest {
         mockMvc.perform(get("/turista/reservas").principal(TOURIST))
                 .andExpect(content().string(containsString("Confirmada")))
                 .andExpect(content().string(containsString("MN-ABC")))
-                .andExpect(content().string(not(containsString("Calificar"))));
+                .andExpect(content().string(not(containsString("Valorar"))));
     }
 
     @Test
@@ -87,7 +87,7 @@ class TouristBookingControllerTest {
                 null, "MN-ABC", true)));
 
         mockMvc.perform(get("/turista/reservas").principal(TOURIST))
-                .andExpect(content().string(containsString("Calificar")))
+                .andExpect(content().string(containsString("Valorar")))
                 .andExpect(content().string(containsString("/reviews/bookings/1")));
     }
 
