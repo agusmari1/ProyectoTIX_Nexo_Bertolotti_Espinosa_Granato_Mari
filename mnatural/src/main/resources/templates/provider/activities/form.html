@@ -32,7 +32,8 @@
     </div>
 
     <form th:unless="${#lists.isEmpty(businesses)}"
-          th:action="@{/provider/activities}" th:object="${activity}" method="post" novalidate>
+          th:action="@{/provider/activities}" th:object="${activity}" method="post"
+          enctype="multipart/form-data" novalidate>
 
         <!-- Datos generales -->
         <div class="card mb-4">
@@ -64,6 +65,19 @@
                     <label for="description" class="form-label">Descripción</label>
                     <textarea id="description" rows="4" class="form-control" th:field="*{description}" th:errorclass="is-invalid"></textarea>
                     <div class="invalid-feedback" th:errors="*{description}"></div>
+                </div>
+
+                <!-- Sin th:field: un input de archivo no puede volver a llenarse con el valor anterior -->
+                <div class="col-12">
+                    <label for="photo" class="form-label">Foto de la actividad</label>
+                    <input type="file" id="photo" name="photo" class="form-control"
+                           accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+                           th:classappend="${#fields.hasErrors('photo')} ? 'is-invalid'">
+                    <div class="invalid-feedback" id="photo-browser-error"></div>
+                    <div class="invalid-feedback" th:errors="*{photo}"></div>
+                    <div class="form-text">
+                        JPG, PNG o WEBP, de hasta 5 MB. Si el formulario vuelve con errores, tenés que elegirla de nuevo.
+                    </div>
                 </div>
 
                 <div class="col-12">
@@ -200,5 +214,6 @@
     </div>
 </footer>
 
+<script th:src="@{/js/activity-photo.js}"></script>
 </body>
 </html>

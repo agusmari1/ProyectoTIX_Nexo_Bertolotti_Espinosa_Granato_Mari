@@ -46,7 +46,8 @@ class ActivityServiceTest {
     @BeforeEach
     void setUp() {
         service = new ActivityService(activityRepository, scheduleRepository,
-                mock(ActivityTypeRepository.class), userRepository, bookingService, cancellationService);
+                mock(ActivityTypeRepository.class), userRepository, bookingService, cancellationService,
+                mock(ActivityPhotoStorage.class));
 
         Provider provider = new Provider();
         provider.setId(PROVIDER_ID);
