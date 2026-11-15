@@ -935,6 +935,7 @@ dl.row dd {
     }
 }
 
+
 /* Selector de idioma (ES | EN) de la barra de navegación */
 .site-nav .lang-switch {
     display: flex;
@@ -955,4 +956,15 @@ dl.row dd {
 .site-nav .lang-switch a.active {
     background: var(--color-primary);
     color: #fff;
+}
+
+/* Foto actual en el formulario de editar actividad */
+.activity-current-photo {
+    display: block;
+    width: 100%;
+    max-width: 320px;
+    height: 180px;
+    margin-bottom: 0.75rem;
+    object-fit: cover;
+    border-radius: var(--radius-sm);
 }

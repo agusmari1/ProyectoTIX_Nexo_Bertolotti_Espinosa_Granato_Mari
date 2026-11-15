@@ -4,6 +4,7 @@ import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import org.springframework.web.multipart.MultipartFile;
 import uy.edu.um.nexo.mnatural.entities.Department;
 
 import java.math.BigDecimal;
@@ -61,7 +62,18 @@ public class ActivityDTO {
 
     private Set<Long> activityTypeIds = new HashSet<>();
 
+    // Obligatoria al crear y opcional al editar: lo controla ActivityService
+    private MultipartFile photo;
+
     public ActivityDTO() {
+    }
+
+    public MultipartFile getPhoto() {
+        return photo;
+    }
+
+    public void setPhoto(MultipartFile photo) {
+        this.photo = photo;
     }
 
     public Long getBusinessId() {
